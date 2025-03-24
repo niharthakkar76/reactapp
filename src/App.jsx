@@ -50,8 +50,10 @@ import {
   SearchIcon, 
   DownloadIcon, 
   RepeatIcon, 
-  ViewIcon 
+  ViewIcon,
+  TriangleDownIcon
 } from '@chakra-ui/icons'
+import { useMemo } from 'react'
 
 function App() {
   const { colorMode, toggleColorMode } = useColorMode()
@@ -68,6 +70,7 @@ function App() {
   const [sectors, setSectors] = useState([])
   const [industries, setIndustries] = useState([])
   const [ratings, setRatings] = useState([])
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
 
   // Color theme values
   const bgColor = useColorModeValue('gray.50', '#000000')
@@ -172,6 +175,11 @@ function App() {
   const formatValue = (value, decimals = 1, showPercent = false) => {
     if (!value && value !== 0) return '-'
     return `${value.toFixed(decimals)}${showPercent ? '%' : ''}`
+  }
+
+  const getPriceColor = (dailyReturns) => {
+    if (!dailyReturns && dailyReturns !== 0) return textColor
+    return dailyReturns >= 0 ? positiveColor : negativeColor
   }
 
   useEffect(() => {
@@ -283,23 +291,84 @@ function App() {
     setRatingStats(stats)
   }
 
-  const filteredData = data.filter(stock => {
-    const matchesSymbol = !symbolFilter || stock.symbol?.toLowerCase().startsWith(symbolFilter.toLowerCase())
-    const matchesCompany = !companyFilter || stock.company_name?.toLowerCase().includes(companyFilter.toLowerCase())
-    const matchesSearch = !searchTerm || 
+  // Sorting function
+  const getSortedData = (items, sortKey, direction) => {
+    if (!sortKey) return items;
+
+    return [...items].sort((a, b) => {
+      let aValue = a[sortKey];
+      let bValue = b[sortKey];
+
+      // Handle numeric values
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return direction === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      // Handle string values
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+        return direction === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      // Handle undefined or null values
+      if (!aValue) return direction === 'asc' ? 1 : -1;
+      if (!bValue) return direction === 'asc' ? -1 : 1;
+
+      return 0;
+    });
+  };
+
+  // Filter and sort data
+  const filteredAndSortedData = useMemo(() => {
+    // First apply filters
+    const filtered = data.filter(stock => {
+      const matchesSymbol = !symbolFilter || stock.symbol?.toLowerCase().startsWith(symbolFilter.toLowerCase())
+      const matchesCompany = !companyFilter || stock.company_name?.toLowerCase().includes(companyFilter.toLowerCase())
+      const matchesSearch = !searchTerm || 
                          stock.sector?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          stock.industry?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRating = selectedRating === 'all' || stock.rating === selectedRating
-    const matchesSector = selectedSector === 'all' || stock.sector === selectedSector
-    const matchesIndustry = selectedIndustry === 'all' || stock.industry === selectedIndustry
-    
-    return matchesSymbol && matchesCompany && matchesSearch && matchesRating && matchesSector && matchesIndustry
-  })
+      const matchesRating = selectedRating === 'all' || stock.rating === selectedRating
+      const matchesSector = selectedSector === 'all' || stock.sector === selectedSector
+      const matchesIndustry = selectedIndustry === 'all' || stock.industry === selectedIndustry
 
-  const getPriceColor = (dailyReturns) => {
-    if (!dailyReturns && dailyReturns !== 0) return textColor
-    return dailyReturns >= 0 ? positiveColor : negativeColor
-  }
+      return matchesSymbol && matchesCompany && matchesSearch && 
+             matchesRating && matchesSector && matchesIndustry;
+    });
+
+    // Then apply sorting
+    return getSortedData(filtered, sortConfig.key, sortConfig.direction);
+  }, [data, symbolFilter, companyFilter, searchTerm, selectedRating, 
+      selectedSector, selectedIndustry, sortConfig]);
+
+  // Sort handler
+  const requestSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: 
+        prevConfig.key === key && prevConfig.direction === 'asc' 
+          ? 'desc' 
+          : 'asc',
+    }));
+  };
+
+  // Sort indicator component
+  const SortIndicator = ({ columnKey }) => {
+    const isActive = sortConfig.key === columnKey;
+    const rotation = sortConfig.direction === 'desc' && isActive ? 180 : 0;
+    
+    return (
+      <TriangleDownIcon
+        ml={1}
+        boxSize={3}
+        opacity={isActive ? 1 : 0.3}
+        transform={`rotate(${rotation}deg)`}
+        transition="transform 0.2s ease"
+      />
+    );
+  };
 
   return (
     <Box minH="100vh" bg={bgColor}>
@@ -563,25 +632,200 @@ function App() {
                     bg={cardBgColor}
                   >
                     <Tr>
-                      <Th py={2} px={2} w="80px" color={mutedTextColor}>Symbol</Th>
-                      <Th py={2} px={2} w="150px" color={mutedTextColor}>Company</Th>
-                      <Th py={2} px={1} w="110px" color={mutedTextColor}>Sector</Th>
-                      <Th py={2} px={1} w="130px" color={mutedTextColor}>Industry</Th>
-                      <Th py={2} px={2} isNumeric w="120px" color={mutedTextColor}>Previous Close Price</Th>
-                      <Th py={2} px={2} w="90px" color={mutedTextColor}>Rating</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>Buy Score</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>RSI</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>MACD</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>Vol</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>MCap</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>P/E</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>ROE%</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>RevG%</Th>
-                      <Th py={2} px={2} isNumeric w="80px" color={mutedTextColor}>EPS G%</Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('symbol')}
+                        _hover={{ color: textColor }}
+                      >
+                        Symbol
+                        <SortIndicator columnKey="symbol" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        w="150px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('company_name')}
+                        _hover={{ color: textColor }}
+                      >
+                        Company
+                        <SortIndicator columnKey="company_name" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={1} 
+                        w="110px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('sector')}
+                        _hover={{ color: textColor }}
+                      >
+                        Sector
+                        <SortIndicator columnKey="sector" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={1} 
+                        w="130px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('industry')}
+                        _hover={{ color: textColor }}
+                      >
+                        Industry
+                        <SortIndicator columnKey="industry" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="120px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('current_price')}
+                        _hover={{ color: textColor }}
+                      >
+                        Previous Close Price
+                        <SortIndicator columnKey="current_price" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        w="90px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('rating')}
+                        _hover={{ color: textColor }}
+                      >
+                        Rating
+                        <SortIndicator columnKey="rating" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('buy_score')}
+                        _hover={{ color: textColor }}
+                      >
+                        Buy Score
+                        <SortIndicator columnKey="buy_score" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('rsi')}
+                        _hover={{ color: textColor }}
+                      >
+                        RSI
+                        <SortIndicator columnKey="rsi" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('macd')}
+                        _hover={{ color: textColor }}
+                      >
+                        MACD
+                        <SortIndicator columnKey="macd" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('volume')}
+                        _hover={{ color: textColor }}
+                      >
+                        Vol
+                        <SortIndicator columnKey="volume" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('market_cap')}
+                        _hover={{ color: textColor }}
+                      >
+                        MCap
+                        <SortIndicator columnKey="market_cap" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('pe_ratio')}
+                        _hover={{ color: textColor }}
+                      >
+                        P/E
+                        <SortIndicator columnKey="pe_ratio" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('return_on_equity')}
+                        _hover={{ color: textColor }}
+                      >
+                        ROE%
+                        <SortIndicator columnKey="return_on_equity" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('revenue_growth')}
+                        _hover={{ color: textColor }}
+                      >
+                        RevG%
+                        <SortIndicator columnKey="revenue_growth" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('earnings_growth')}
+                        _hover={{ color: textColor }}
+                      >
+                        EPS G%
+                        <SortIndicator columnKey="earnings_growth" />
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredData.map((stock) => (
+                    {filteredAndSortedData.map((stock) => (
                       <Tr 
                         key={stock.symbol} 
                         _hover={{ bg: hoverBgColor }}
@@ -678,8 +922,8 @@ function App() {
           
           {/* Status Bar */}
           <Flex justify="center" align="center" py={0.5} fontSize="xs" color={mutedTextColor}>
-            <Text>Showing {filteredData.length} of {data.length} stocks</Text>
-            {filteredData.length < data.length && (
+            <Text>Showing {filteredAndSortedData.length} of {data.length} stocks</Text>
+            {filteredAndSortedData.length < data.length && (
               <Badge ml={1} colorScheme="blue" variant="subtle" fontSize="2xs">
                 Filtered
               </Badge>
