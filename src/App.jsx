@@ -386,7 +386,7 @@ function App() {
     <Box minH="100vh" bg={bgColor}>
       <Container maxW="100%" p={1}>
         <VStack spacing={1} align="stretch">
-          {/* Compact Header with Stats */}
+          {/* Header */}
           <Flex 
             bg={cardBgColor} 
             p={2} 
@@ -396,9 +396,8 @@ function App() {
             gap={2}
             borderColor={borderColor}
             borderWidth="1px"
-            flexWrap="wrap"
           >
-            {/* Left side: Title and Exchange */}
+            {/* Left: Title and Exchange */}
             <Flex align="center" gap={2} flex="0 0 auto">
               <Flex align="center" gap={1}>
                 <Heading size="sm" bgGradient="linear(to-r, blue.400, teal.400)" bgClip="text" fontWeight="bold">
@@ -434,7 +433,7 @@ function App() {
             </Flex>
 
             {/* Center: Rating Stats */}
-            <Flex flex="1 1 auto" justify="center" wrap="wrap" gap={1}>
+            <Flex flex="1" justify="center" wrap="wrap" gap={1}>
               {Object.entries(ratingStats)
                 .sort((a, b) => {
                   const order = {
@@ -468,19 +467,18 @@ function App() {
                     >
                       {rating.replace('Strong ', 'S.').replace('Weak ', 'W.')}
                     </StatLabel>
-                    <Flex justify="center" align="center" gap={1}>
-                      <StatNumber fontSize="sm" color="white" fontWeight="bold">
-                        {stats.count.toLocaleString()}
-                      </StatNumber>
-                      <Text fontSize="xs" color="white" opacity={0.9}>
-                        {stats.avgReturn > 0 ? '+' : ''}{formatValue(stats.avgReturn * 100, 1)}%
-                      </Text>
-                    </Flex>
+                    <StatNumber 
+                      fontSize="sm" 
+                      color="white" 
+                      fontWeight="bold"
+                    >
+                      {stats.count.toLocaleString()}
+                    </StatNumber>
                   </Stat>
-              ))}
+                ))}
             </Flex>
 
-            {/* Right side: Actions */}
+            {/* Right: Actions */}
             <Flex gap={1} flex="0 0 auto">
               <IconButton
                 icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -506,130 +504,76 @@ function App() {
             </Flex>
           </Flex>
 
-          {/* Improved Filter Layout */}
+          {/* Filters */}
           <Grid
             templateColumns={{ 
               base: "repeat(2, 1fr)", 
-              md: "repeat(3, 1fr)", 
+              md: "repeat(4, 1fr)", 
               lg: "repeat(6, 1fr)" 
             }}
             gap={1}
-            p={2}
-            bg={cardBgColor}
-            rounded="lg"
-            shadow="sm"
-            borderColor={borderColor}
-            borderWidth="1px"
           >
-            {/* Symbol Filter */}
             <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Symbol</FormLabel>
-                <InputGroup size="sm">
-                  <Input
-                    placeholder="AAPL..."
-                    value={symbolFilter}
-                    onChange={(e) => setSymbolFilter(e.target.value)}
-                    bg={cardBgColor}
-                    borderColor={borderColor}
-                  />
-                </InputGroup>
-              </FormControl>
-            </GridItem>
-
-            {/* Company Filter */}
-            <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Company</FormLabel>
-                <InputGroup size="sm">
-                  <Input
-                    placeholder="Apple Inc..."
-                    value={companyFilter}
-                    onChange={(e) => setCompanyFilter(e.target.value)}
-                    bg={cardBgColor}
-                    borderColor={borderColor}
-                  />
-                </InputGroup>
-              </FormControl>
-            </GridItem>
-
-            {/* Sector/Industry Search */}
-            <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Sector/Industry</FormLabel>
-                <InputGroup size="sm">
-                  <Input
-                    placeholder="Technology..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    bg={cardBgColor}
-                    borderColor={borderColor}
-                  />
-                </InputGroup>
-              </FormControl>
-            </GridItem>
-
-            {/* Rating Filter */}
-            <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Rating</FormLabel>
-                <Select
-                  size="sm"
-                  value={selectedRating}
-                  onChange={(e) => setSelectedRating(e.target.value)}
+              <InputGroup size="sm">
+                <InputLeftElement pointerEvents="none">
+                  <SearchIcon color={mutedTextColor} />
+                </InputLeftElement>
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   bg={cardBgColor}
                   borderColor={borderColor}
-                >
-                  <option value="all">All Ratings</option>
-                  {ratings.map((rating) => (
-                    <option key={rating} value={rating}>{rating}</option>
-                  ))}
-                </Select>
-              </FormControl>
+                />
+              </InputGroup>
             </GridItem>
-
-            {/* Sector Filter */}
             <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Sector</FormLabel>
-                <Select
-                  size="sm"
-                  value={selectedSector}
-                  onChange={(e) => setSelectedSector(e.target.value)}
-                  bg={cardBgColor}
-                  borderColor={borderColor}
-                >
-                  <option value="all">All Sectors</option>
-                  {sectors.map((sector) => (
-                    <option key={sector} value={sector}>{sector}</option>
-                  ))}
-                </Select>
-              </FormControl>
+              <Select
+                size="sm"
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value)}
+                bg={cardBgColor}
+                borderColor={borderColor}
+              >
+                <option value="all">All Ratings</option>
+                {ratings.map(rating => (
+                  <option key={rating} value={rating}>{rating}</option>
+                ))}
+              </Select>
             </GridItem>
-
-            {/* Industry Filter */}
             <GridItem>
-              <FormControl>
-                <FormLabel fontSize="xs" color={mutedTextColor} mb={0}>Industry</FormLabel>
-                <Select
-                  size="sm"
-                  value={selectedIndustry}
-                  onChange={(e) => setSelectedIndustry(e.target.value)}
-                  bg={cardBgColor}
-                  borderColor={borderColor}
-                >
-                  <option value="all">All Industries</option>
-                  {industries.map((industry) => (
-                    <option key={industry} value={industry}>{industry}</option>
-                  ))}
-                </Select>
-              </FormControl>
+              <Select
+                size="sm"
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                bg={cardBgColor}
+                borderColor={borderColor}
+              >
+                <option value="all">All Sectors</option>
+                {sectors.map(sector => (
+                  <option key={sector} value={sector}>{sector}</option>
+                ))}
+              </Select>
+            </GridItem>
+            <GridItem>
+              <Select
+                size="sm"
+                value={selectedIndustry}
+                onChange={(e) => setSelectedIndustry(e.target.value)}
+                bg={cardBgColor}
+                borderColor={borderColor}
+              >
+                <option value="all">All Industries</option>
+                {industries.map(industry => (
+                  <option key={industry} value={industry}>{industry}</option>
+                ))}
+              </Select>
             </GridItem>
           </Grid>
 
           {/* Table */}
           {loading ? (
-            <Flex 
+            <Box 
               p={4} 
               justify="center" 
               align="center" 
@@ -640,7 +584,7 @@ function App() {
               borderWidth="1px"
             >
               <Spinner color={useColorModeValue('blue.500', 'blue.200')} />
-            </Flex>
+            </Box>
           ) : (
             <Box 
               bg={cardBgColor} 
@@ -966,9 +910,9 @@ function App() {
           )}
           
           {/* Status Bar */}
-          <Flex justify="center" align="center" py={0.5} fontSize="xs" color={mutedTextColor}>
+          <Box justify="center" align="center" py={0.5} fontSize="xs" color={mutedTextColor}>
             <Text>Showing {data.length} of {data.length} stocks</Text>
-          </Flex>
+          </Box>
         </VStack>
       </Container>
     </Box>
