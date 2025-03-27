@@ -464,15 +464,16 @@ function App() {
                       fontWeight="medium"
                       mb={0}
                       opacity={0.9}
+                      whiteSpace="nowrap"
                     >
-                      {rating.replace('Strong ', 'S.')}
+                      {rating.replace('Strong ', 'S.').replace('Weak ', 'W.')}
                     </StatLabel>
                     <Flex justify="center" align="center" gap={1}>
                       <StatNumber fontSize="sm" color="white" fontWeight="bold">
-                        {stats.count}
+                        {stats.count.toLocaleString()}
                       </StatNumber>
                       <Text fontSize="xs" color="white" opacity={0.9}>
-                        {formatValue(stats.avgReturn * 100, 1)}%
+                        {stats.avgReturn > 0 ? '+' : ''}{formatValue(stats.avgReturn * 100, 1)}%
                       </Text>
                     </Flex>
                   </Stat>
