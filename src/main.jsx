@@ -7,6 +7,7 @@ import History from './History'
 import Login from './Login'
 import theme from './theme'
 import './index.css'
+import StockDetails from './StockDetails'
 
 // Auth guard component
 const PrivateRoute = ({ children }) => {
@@ -31,6 +32,13 @@ const router = createBrowserRouter([
     element: 
       <PrivateRoute>
         <History />
+      </PrivateRoute>
+  },
+  {
+    path: "/stock/:symbol",
+    element: 
+      <PrivateRoute>
+        <StockDetails />
       </PrivateRoute>
   },
   {

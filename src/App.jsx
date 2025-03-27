@@ -867,7 +867,15 @@ function App() {
                         _hover={{ bg: hoverBgColor }}
                         borderColor={borderColor}
                       >
-                        <Td py={0.5} px={2} fontSize="xs" fontWeight="medium">{stock?.symbol || '-'}</Td>
+                        <Td py={0.5} px={2} fontSize="xs" fontWeight="medium">
+                          <Link
+                            to={`/stock/${stock?.symbol?.split('.')[0]}?exchange=${selectedExchange}`}
+                            color="blue.500"
+                            _hover={{ textDecoration: 'underline' }}
+                          >
+                            {stock?.symbol?.split('.')[0] ?? '-'}
+                          </Link>
+                        </Td>
                         <Td py={0.5} px={2} fontSize="xs" maxW="150px" isTruncated>{stock?.company_name || '-'}</Td>
                         <Td py={0.5} px={1} fontSize="xs" w="110px">
                           <Box overflow="hidden">
