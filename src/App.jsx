@@ -331,12 +331,25 @@ function App() {
   }
 
   const requestSort = (key) => {
+    // Map UI column names to database column names
+    const columnMap = {
+      'buy_score': 'probability',
+      'rsi': 'rsi_14',
+      'macd': 'macd_signal',
+      'vol': 'volume',
+      'mcap': 'market_cap',
+      'pe': 'pe_ratio',
+      'roe': 'return_on_equity',
+      'revg': 'revenue_growth',
+      'epsg': 'earnings_growth'
+    };
+
     let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+    if (sortConfig.key === (columnMap[key] || key) && sortConfig.direction === 'asc') {
       direction = 'desc';
     }
-    setSortConfig({ key, direction });
-    fetchData(true); // Refetch data with new sort
+    setSortConfig({ key: columnMap[key] || key, direction });
+    fetchData(true);
   };
 
   const SortIndicator = ({ columnKey }) => {
@@ -718,7 +731,7 @@ function App() {
                         _hover={{ color: textColor }}
                       >
                         Buy Score
-                        <SortIndicator columnKey="buy_score" />
+                        <SortIndicator columnKey="probability" />
                       </Th>
                       <Th 
                         py={2} 
@@ -731,7 +744,7 @@ function App() {
                         _hover={{ color: textColor }}
                       >
                         RSI
-                        <SortIndicator columnKey="rsi" />
+                        <SortIndicator columnKey="rsi_14" />
                       </Th>
                       <Th 
                         py={2} 
@@ -744,7 +757,7 @@ function App() {
                         _hover={{ color: textColor }}
                       >
                         MACD
-                        <SortIndicator columnKey="macd" />
+                        <SortIndicator columnKey="macd_signal" />
                       </Th>
                       <Th 
                         py={2} 
@@ -753,7 +766,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('volume')}
+                        onClick={() => requestSort('vol')}
                         _hover={{ color: textColor }}
                       >
                         Vol
@@ -766,7 +779,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('market_cap')}
+                        onClick={() => requestSort('mcap')}
                         _hover={{ color: textColor }}
                       >
                         MCap
@@ -779,7 +792,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('pe_ratio')}
+                        onClick={() => requestSort('pe')}
                         _hover={{ color: textColor }}
                       >
                         P/E
@@ -792,7 +805,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('return_on_equity')}
+                        onClick={() => requestSort('roe')}
                         _hover={{ color: textColor }}
                       >
                         ROE%
@@ -805,7 +818,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('revenue_growth')}
+                        onClick={() => requestSort('revg')}
                         _hover={{ color: textColor }}
                       >
                         RevG%
@@ -818,7 +831,7 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('earnings_growth')}
+                        onClick={() => requestSort('epsg')}
                         _hover={{ color: textColor }}
                       >
                         EPS G%
@@ -888,11 +901,11 @@ function App() {
                         <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.probability, 50)}>
                           {formatValue(stock?.probability, 1, true)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi, 50)}>
-                          {formatValue(stock?.rsi)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi_14, 50)}>
+                          {formatValue(stock?.rsi_14)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd)}>
-                          {formatValue(stock?.macd)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd_signal)}>
+                          {formatValue(stock?.macd_signal)}
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs">
                           {formatVolume(stock?.volume)}
