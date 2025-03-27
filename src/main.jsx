@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import App from './App'
 import History from './History'
 import Login from './Login'
@@ -28,8 +28,15 @@ const router = createBrowserRouter([
   },
   {
     path: "/history",
-    element: <History />,
+    element: 
+      <PrivateRoute>
+        <History />
+      </PrivateRoute>
   },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />
+  }
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
