@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 import {
   Box,
@@ -60,6 +60,10 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const tableContainerRef = useRef(null)
   const [symbolFilter, setSymbolFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
   const [selectedRating, setSelectedRating] = useState('all')
@@ -151,13 +155,13 @@ function App() {
   }
 
   const formatPrice = (price) => {
-    if (!price && price !== 0) return '-'
-    return `$${price.toFixed(2)}`
+    if (price === null || price === undefined || isNaN(price)) return '-'
+    return `$${Number(price).toFixed(2)}`
   }
 
   const formatChange = (dailyReturns) => {
-    if (!dailyReturns && dailyReturns !== 0) return '-'
-    return `${(dailyReturns * 100).toFixed(1)}%`
+    if (dailyReturns === null || dailyReturns === undefined || isNaN(dailyReturns)) return '-'
+    return `${(Number(dailyReturns) * 100).toFixed(1)}%`
   }
 
   const getValueColor = (value, threshold = 0) => {
@@ -173,67 +177,106 @@ function App() {
   }
 
   const formatValue = (value, decimals = 1, showPercent = false) => {
-    if (!value && value !== 0) return '-'
-    return `${value.toFixed(decimals)}${showPercent ? '%' : ''}`
+    if (value === null || value === undefined || isNaN(value)) return '-'
+    return `${Number(value).toFixed(decimals)}${showPercent ? '%' : ''}`
   }
 
   const getPriceColor = (dailyReturns) => {
-    if (!dailyReturns && dailyReturns !== 0) return textColor
-    return dailyReturns >= 0 ? positiveColor : negativeColor
+    if (dailyReturns === null || dailyReturns === undefined || isNaN(dailyReturns)) return textColor
+    return Number(dailyReturns) >= 0 ? positiveColor : negativeColor
   }
 
   useEffect(() => {
     fetchData()
-  }, [selectedExchange])
+  }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
 
-  const fetchData = async () => {
-    setLoading(true)
+  const fetchData = async (resetData = true) => {
+    if (resetData) {
+      setLoading(true)
+      setPage(0)
+      setHasMore(true)
+    } else {
+      setIsLoadingMore(true)
+    }
+
     try {
-      // Get today's date in UTC
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      today.setDate(today.getDate() - 1) // Include yesterday's data
+      today.setDate(today.getDate() - 1)
 
-      let { count, error: countError } = await supabase
+      const pageSize = 50
+      const currentPage = resetData ? 0 : page
+
+      let query = supabase
         .from(selectedExchange)
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
         .gte('prediction_date', today.toISOString())
 
-      if (countError) throw countError
-      console.log('Count:', count) // Debug log
-
-      // Fetch all records in batches of 1000
-      let allData = []
-      let page = 0
-      const pageSize = 1000
-      
-      while (page * pageSize < count) {
-        const { data: pageData, error } = await supabase
-          .from(selectedExchange)
-          .select('*')
-          .gte('prediction_date', today.toISOString())
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-          .order('symbol', { ascending: true })
-
-        if (error) {
-          console.error('Error fetching data:', error) // Debug log
-          throw error
-        }
-        
-        if (pageData) {
-          console.log('Page data length:', pageData.length) // Debug log
-          allData = [...allData, ...pageData]
-        }
-        
-        page++
+      // Apply filters at database level
+      if (symbolFilter) {
+        query = query.ilike('symbol', `${symbolFilter}%`)
+      }
+      if (companyFilter) {
+        query = query.ilike('company_name', `%${companyFilter}%`)
+      }
+      if (searchTerm) {
+        query = query.or(`symbol.ilike.%${searchTerm}%`,`company_name.ilike.%${searchTerm}%`,`sector.ilike.%${searchTerm}%`,`industry.ilike.%${searchTerm}%`)
+      }
+      if (selectedRating !== 'all') {
+        query = query.eq('rating', selectedRating)
+      }
+      if (selectedSector !== 'all') {
+        query = query.eq('sector', selectedSector)
+      }
+      if (selectedIndustry !== 'all') {
+        query = query.eq('industry', selectedIndustry)
       }
 
-      console.log('Total data length:', allData.length) // Debug log
+      // First fetch total counts for rating statistics without pagination
+      let allDataQuery = supabase
+        .from(selectedExchange)
+        .select('*')
+        .gte('prediction_date', today.toISOString())
 
-      setData(allData)
-      calculateRatingStats(allData)
+      // Apply same filters to allData query
+      if (symbolFilter) {
+        allDataQuery = allDataQuery.ilike('symbol', `${symbolFilter}%`)
+      }
+      if (companyFilter) {
+        allDataQuery = allDataQuery.ilike('company_name', `%${companyFilter}%`)
+      }
+      if (searchTerm) {
+        allDataQuery = allDataQuery.or(`symbol.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,sector.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`)
+      }
+      if (selectedRating !== 'all') {
+        allDataQuery = allDataQuery.eq('rating', selectedRating)
+      }
+      if (selectedSector !== 'all') {
+        allDataQuery = allDataQuery.eq('sector', selectedSector)
+      }
+      if (selectedIndustry !== 'all') {
+        allDataQuery = allDataQuery.eq('industry', selectedIndustry)
+      }
+
+      const { data: allData, error: statsError } = await allDataQuery
+
+      if (!statsError && allData) {
+        calculateRatingStats(allData)
+      }
+
+      // Then fetch paginated data for display
+      const { data: pageData, error, count } = await query
+        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
+        .order('symbol', { ascending: true })
+
+      if (error) throw error
+
+      const newData = resetData ? pageData : [...data, ...pageData]
+      setData(newData)
+      setHasMore(newData.length < count)
+      setPage(currentPage + 1)
       
-      // Extract unique sectors and industries
+      // Extract unique sectors, industries and ratings from all data
       const uniqueSectors = [...new Set(allData.map(item => item.sector).filter(Boolean))]
       const uniqueIndustries = [...new Set(allData.map(item => item.industry).filter(Boolean))]
       const uniqueRatings = [...new Set(allData.map(item => item.rating).filter(Boolean))]
@@ -241,25 +284,14 @@ function App() {
       setIndustries(uniqueIndustries.sort())
       setRatings(uniqueRatings.sort())
 
-      if (allData.length < count) {
-        // toast({
-        //   title: 'Warning',
-        //   description: `Only loaded ${allData.length} out of ${count} records. Try refreshing if you need to see more data.`,
-        //   status: 'warning',
-        //   duration: 5000,
-        //   isClosable: true,
-        // })
-      }
     } catch (error) {
-      // toast({
-      //   title: 'Error fetching data',
-      //   description: error.message,
-      //   status: 'error',
-      //   duration: 5000,
-      //   isClosable: true,
-      // })
+      console.error('Error fetching data:', error)
     } finally {
-      setLoading(false)
+      if (resetData) {
+        setLoading(false)
+      } else {
+        setIsLoadingMore(false)
+      }
     }
   }
 
@@ -323,25 +355,8 @@ function App() {
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    // First apply filters
-    const filtered = data.filter(stock => {
-      const matchesSymbol = !symbolFilter || stock.symbol?.toLowerCase().startsWith(symbolFilter.toLowerCase())
-      const matchesCompany = !companyFilter || stock.company_name?.toLowerCase().includes(companyFilter.toLowerCase())
-      const matchesSearch = !searchTerm || 
-                         stock.sector?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         stock.industry?.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesRating = selectedRating === 'all' || stock.rating === selectedRating
-      const matchesSector = selectedSector === 'all' || stock.sector === selectedSector
-      const matchesIndustry = selectedIndustry === 'all' || stock.industry === selectedIndustry
-
-      return matchesSymbol && matchesCompany && matchesSearch && 
-             matchesRating && matchesSector && matchesIndustry;
-    });
-
-    // Then apply sorting
-    return getSortedData(filtered, sortConfig.key, sortConfig.direction);
-  }, [data, symbolFilter, companyFilter, searchTerm, selectedRating, 
-      selectedSector, selectedIndustry, sortConfig]);
+    return getSortedData(data, sortConfig.key, sortConfig.direction);
+  }, [data, sortConfig]);
 
   // Sort handler
   const requestSort = (key) => {
@@ -420,38 +435,6 @@ function App() {
                 <option value="lse_stock_data">LSE</option>
                 <option value="fse_stock_data">FSE</option>
               </Select>
-            </Flex>
-
-            {/* Middle: Stats */}
-            <Flex flex={1} gap={2} overflowX="auto" css={{
-              '&::-webkit-scrollbar': { height: '6px' },
-              '&::-webkit-scrollbar-track': { background: 'transparent' },
-              '&::-webkit-scrollbar-thumb': { background: useColorModeValue('gray.300', 'gray.600'), borderRadius: '3px' }
-            }}>
-              {Object.entries(ratingStats).map(([rating, stats]) => (
-                <Box 
-                  key={rating} 
-                  bg={useColorModeValue('white', '#121212')} 
-                  p={1.5} 
-                  rounded="md" 
-                  shadow="sm"
-                  minW="100px"
-                  borderColor={borderColor}
-                  borderWidth="1px"
-                >
-                  <HStack spacing={1}>
-                    <Badge size="sm" colorScheme={getRatingColor(rating).split('.')[0]}>
-                      {rating}
-                    </Badge>
-                    <Text fontSize="xs" color={textColor} fontWeight="bold">
-                      {stats.count}
-                    </Text>
-                    <Text fontSize="xs" color={mutedTextColor}>
-                      {stats.avgReturn.toFixed(1)}%
-                    </Text>
-                  </HStack>
-                </Box>
-              ))}
             </Flex>
 
             {/* Right side: Actions */}
@@ -623,7 +606,17 @@ function App() {
               borderColor={borderColor}
               borderWidth="1px"
             >
-              <TableContainer maxH="calc(100vh - 120px)" overflowY="auto">
+              <TableContainer 
+                ref={tableContainerRef}
+                maxH="calc(100vh - 120px)" 
+                overflowY="auto"
+                onScroll={(e) => {
+                  const { scrollTop, scrollHeight, clientHeight } = e.target
+                  if (!isLoadingMore && hasMore && scrollHeight - scrollTop <= clientHeight * 1.5) {
+                    fetchData(false)
+                  }
+                }}
+              >
                 <Table variant="simple" size="sm">
                   <Thead 
                     position="sticky" 
@@ -825,18 +818,18 @@ function App() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredAndSortedData.map((stock) => (
+                    {filteredAndSortedData.map((stock) => stock && (
                       <Tr 
-                        key={stock.symbol} 
+                        key={stock?.symbol || `unknown-${Math.random()}`} 
                         _hover={{ bg: hoverBgColor }}
                         borderColor={borderColor}
                       >
-                        <Td py={0.5} px={2} fontSize="xs" fontWeight="medium">{stock.symbol}</Td>
-                        <Td py={0.5} px={2} fontSize="xs" maxW="150px" isTruncated>{stock.company_name}</Td>
+                        <Td py={0.5} px={2} fontSize="xs" fontWeight="medium">{stock?.symbol || '-'}</Td>
+                        <Td py={0.5} px={2} fontSize="xs" maxW="150px" isTruncated>{stock?.company_name || '-'}</Td>
                         <Td py={0.5} px={1} fontSize="xs" w="110px">
                           <Box overflow="hidden">
                             <Badge 
-                              colorScheme={getSectorColor(stock.sector)} 
+                              colorScheme={stock?.sector ? getSectorColor(stock.sector) : 'gray'} 
                               variant="subtle"
                               size="sm"
                               px={1}
@@ -847,14 +840,14 @@ function App() {
                               display="block"
                               w="100%"
                             >
-                              {stock.sector}
+                              {stock?.sector || '-'}
                             </Badge>
                           </Box>
                         </Td>
                         <Td py={0.5} px={1} fontSize="xs" w="130px">
                           <Box overflow="hidden">
                             <Badge 
-                              colorScheme={getIndustryColor(stock.industry)} 
+                              colorScheme={stock?.industry ? getIndustryColor(stock.industry) : 'gray'} 
                               variant="subtle"
                               size="sm"
                               px={1}
@@ -865,52 +858,52 @@ function App() {
                               display="block"
                               w="100%"
                             >
-                              {stock.industry}
+                              {stock?.industry || '-'}
                             </Badge>
                           </Box>
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock.daily_returns)}>
-                          {formatPrice(stock.current_price)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock?.daily_returns)}>
+                          {formatPrice(stock?.current_price)}
                         </Td>
                         <Td py={0.5} px={2}>
                           <Badge 
                             fontSize="10px" 
-                            colorScheme={getRatingColor(stock.rating)}
+                            colorScheme={stock?.rating ? getRatingColor(stock.rating) : 'gray'}
                             px={2}
                             py={0.5}
                             borderRadius="md"
                           >
-                            {stock.rating}
+                            {stock?.rating || '-'}
                           </Badge>
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.probability, 50)}>
-                          {formatValue(stock.probability, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.probability, 50)}>
+                          {formatValue(stock?.probability, 1, true)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.rsi, 50)}>
-                          {formatValue(stock.rsi)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi, 50)}>
+                          {formatValue(stock?.rsi)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.macd)}>
-                          {formatValue(stock.macd)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {formatVolume(stock.volume)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd)}>
+                          {formatValue(stock?.macd)}
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {stock.market_cap >= 1e9 
-                            ? `${(stock.market_cap / 1e9).toFixed(1)}B` 
-                            : `${(stock.market_cap / 1e6).toFixed(0)}M`}
+                          {formatVolume(stock?.volume)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.pe_ratio, 15)}>
-                          {formatValue(stock.pe_ratio)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs">
+                          {stock?.market_cap >= 1e9 
+                            ? `${(stock?.market_cap / 1e9).toFixed(1)}B` 
+                            : `${(stock?.market_cap / 1e6).toFixed(0)}M`}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.return_on_equity)}>
-                          {formatValue(stock.return_on_equity * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.pe_ratio, 15)}>
+                          {formatValue(stock?.pe_ratio)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.revenue_growth)}>
-                          {formatValue(stock.revenue_growth * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.return_on_equity)}>
+                          {formatValue(stock?.return_on_equity * 100, 1, true)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock.earnings_growth)}>
-                          {formatValue(stock.earnings_growth * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.revenue_growth)}>
+                          {formatValue(stock?.revenue_growth * 100, 1, true)}
+                        </Td>
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.earnings_growth)}>
+                          {formatValue(stock?.earnings_growth * 100, 1, true)}
                         </Td>
                       </Tr>
                     ))}
