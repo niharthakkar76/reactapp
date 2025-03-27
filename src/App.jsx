@@ -395,46 +395,81 @@ function App() {
             p={2} 
             rounded="lg" 
             shadow="sm" 
-            direction={{ base: 'column', md: 'row' }}
+            alignItems="center"
             gap={2}
             borderColor={borderColor}
             borderWidth="1px"
           >
             {/* Left side: Title and Exchange */}
-            <Flex align="center" gap={2} minW={{ md: '300px' }}>
+            <Flex align="center" gap={2}>
               <Flex align="center" gap={1}>
-                <Heading 
-                  size="md" 
-                  bgGradient="linear(to-r, blue.400, teal.400)" 
-                  bgClip="text" 
-                  fontWeight="bold"
-                  letterSpacing="tight"
-                >
+                <Heading size="sm" bgGradient="linear(to-r, blue.400, teal.400)" bgClip="text" fontWeight="bold">
                   Swift
                 </Heading>
-                <Heading 
-                  size="md" 
-                  color={textColor}
-                  fontWeight="bold"
-                  letterSpacing="tight"
-                >
+                <Heading size="sm" color={textColor} fontWeight="bold">
                   Signal
                 </Heading>
               </Flex>
-              <Text fontSize="sm" color={mutedTextColor}>
+              <Text fontSize="xs" color={mutedTextColor}>
                 {data.length > 0 ? formatDate(data[0].prediction_date) : ''}
               </Text>
               <Select
                 value={selectedExchange}
                 onChange={(e) => setSelectedExchange(e.target.value)}
                 size="xs"
-                w="100px"
+                w="80px"
               >
                 <option value="nasdaq_stock_data">NASDAQ</option>
                 <option value="nyse_stock_data">NYSE</option>
                 <option value="lse_stock_data">LSE</option>
                 <option value="fse_stock_data">FSE</option>
               </Select>
+            </Flex>
+
+            {/* Rating Statistics */}
+            <Flex flex={1} justify="center">
+              <SimpleGrid columns={6} spacing={1} maxW="fit-content">
+                {Object.entries(ratingStats).map(([rating, stats]) => {
+                  const ratingColors = {
+                    'Strong Buy': 'green.500',
+                    'Buy': 'teal.400',
+                    'Weak Buy': 'blue.400',
+                    'Strong Sell': 'red.500',
+                    'Sell': 'red.400',
+                    'Weak Sell': 'orange.400'
+                  };
+                  return (
+                    <Stat 
+                      key={rating} 
+                      px={1.5} 
+                      py={0.5} 
+                      bg={useColorModeValue('white', 'whiteAlpha.50')} 
+                      rounded="md" 
+                      borderWidth="1px" 
+                      borderColor={useColorModeValue(`${ratingColors[rating]}`, `${ratingColors[rating]}40`)}
+                      minW="70px"
+                      textAlign="center"
+                    >
+                      <StatLabel 
+                        color={ratingColors[rating]} 
+                        fontSize="2xs"
+                        fontWeight="medium"
+                        mb={0}
+                        whiteSpace="nowrap"
+                      >
+                        {rating.replace(' ', '\u00A0')}
+                      </StatLabel>
+                      <StatNumber 
+                        fontSize="xs" 
+                        color={textColor}
+                        fontWeight="bold"
+                      >
+                        {stats.count}
+                      </StatNumber>
+                    </Stat>
+                  );
+                })}
+              </SimpleGrid>
             </Flex>
 
             {/* Right side: Actions */}
