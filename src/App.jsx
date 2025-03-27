@@ -233,6 +233,13 @@ function App() {
         query = query.eq('industry', selectedIndustry)
       }
 
+      // Apply sorting
+      if (sortConfig.key) {
+        query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' })
+      } else {
+        query = query.order('symbol', { ascending: true })
+      }
+
       // First fetch total counts for rating statistics without pagination
       let allDataQuery = supabase
         .from(selectedExchange)
@@ -268,7 +275,6 @@ function App() {
       // Then fetch paginated data for display
       const { data: pageData, error, count } = await query
         .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
-        .order('symbol', { ascending: true })
 
       if (error) throw error
 
@@ -324,65 +330,21 @@ function App() {
     setRatingStats(stats)
   }
 
-  // Sorting function
-  const getSortedData = (items, sortKey, direction) => {
-    if (!sortKey) return items;
-
-    return [...items].sort((a, b) => {
-      let aValue = a[sortKey];
-      let bValue = b[sortKey];
-
-      // Handle numeric values
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      // Handle string values
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-        return direction === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-
-      // Handle undefined or null values
-      if (!aValue) return direction === 'asc' ? 1 : -1;
-      if (!bValue) return direction === 'asc' ? -1 : 1;
-
-      return 0;
-    });
-  };
-
-  // Filter and sort data
-  const filteredAndSortedData = useMemo(() => {
-    return getSortedData(data, sortConfig.key, sortConfig.direction);
-  }, [data, sortConfig]);
-
-  // Sort handler
   const requestSort = (key) => {
-    setSortConfig(prevConfig => ({
-      key,
-      direction: 
-        prevConfig.key === key && prevConfig.direction === 'asc' 
-          ? 'desc' 
-          : 'asc',
-    }));
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+    fetchData(true); // Refetch data with new sort
   };
 
-  // Sort indicator component
   const SortIndicator = ({ columnKey }) => {
-    const isActive = sortConfig.key === columnKey;
-    const rotation = sortConfig.direction === 'desc' && isActive ? 180 : 0;
-    
+    if (sortConfig.key !== columnKey) return null;
     return (
-      <TriangleDownIcon
-        ml={1}
-        boxSize={3}
-        opacity={isActive ? 1 : 0.3}
-        transform={`rotate(${rotation}deg)`}
-        transition="transform 0.2s ease"
-      />
+      <Text as="span" ml={1}>
+        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+      </Text>
     );
   };
 
@@ -865,7 +827,7 @@ function App() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredAndSortedData.map((stock) => stock && (
+                    {data.map((stock) => stock && (
                       <Tr 
                         key={stock?.symbol || `unknown-${Math.random()}`} 
                         _hover={{ bg: hoverBgColor }}
@@ -962,12 +924,7 @@ function App() {
           
           {/* Status Bar */}
           <Flex justify="center" align="center" py={0.5} fontSize="xs" color={mutedTextColor}>
-            <Text>Showing {filteredAndSortedData.length} of {data.length} stocks</Text>
-            {filteredAndSortedData.length < data.length && (
-              <Badge ml={1} colorScheme="blue" variant="subtle" fontSize="2xs">
-                Filtered
-              </Badge>
-            )}
+            <Text>Showing {data.length} of {data.length} stocks</Text>
           </Flex>
         </VStack>
       </Container>
