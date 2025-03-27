@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
+import { Link } from 'react-router-dom'
 import {
   Box,
   Table,
@@ -41,7 +42,7 @@ import {
   InputLeftElement,
   FormControl,
   FormLabel,
-  GridItem
+  GridItem,
 } from '@chakra-ui/react'
 import { 
   SunIcon, 
@@ -424,6 +425,16 @@ function App() {
                 <option value="lse_stock_data">LSE</option>
                 <option value="fse_stock_data">FSE</option>
               </Select>
+              <Button
+                as={Link}
+                to="/history"
+                size="xs"
+                colorScheme="blue"
+                leftIcon={<ViewIcon />}
+                ml={2}
+              >
+                View History
+              </Button>
             </Flex>
 
             {/* Rating Statistics */}
@@ -489,6 +500,7 @@ function App() {
                   size="xs"
                 />
                 <MenuList>
+                  <MenuItem as={Link} to="/history" icon={<ViewIcon />}>View History</MenuItem>
                   <MenuItem icon={<DownloadIcon />}>Download Data</MenuItem>
                   <MenuItem icon={<RepeatIcon />}>Refresh Data</MenuItem>
                   <MenuItem icon={<ViewIcon />}>Column Settings</MenuItem>
