@@ -93,61 +93,62 @@ function App() {
       'Strong Buy': 'green',
       'Buy': 'teal',
       'Weak Buy': 'blue',
-      'Hold': 'yellow',
       'Weak Sell': 'orange',
       'Sell': 'red',
-      'Strong Sell': 'purple'
+      'Strong Sell': 'red'
     }
     return ratingColors[rating] || 'gray'
   }
 
-  // Sector colors with simplified palette
+  // Get color scheme for sectors
   const getSectorColor = (sector) => {
     const sectorColors = {
       'Technology': 'blue',
-      'Healthcare': 'teal',
-      'Financial Services': 'purple',
-      'Consumer Cyclical': 'orange',
-      'Consumer Defensive': 'green',
-      'Industrials': 'gray',
-      'Basic Materials': 'yellow',
-      'Energy': 'red',
-      'Communication Services': 'pink',
+      'Healthcare': 'green',
+      'Financial': 'purple',
+      'Consumer': 'orange',
+      'Industrial': 'gray',
+      'Energy': 'yellow',
+      'Materials': 'red',
+      'Communication': 'pink',
       'Real Estate': 'cyan',
-      'Utilities': 'blue'
+      'Utilities': 'teal'
     }
     return sectorColors[sector] || 'gray'
   }
 
-  // Industry colors with direct mapping
+  // Industry colors with focused palette
   const getIndustryColor = (industry) => {
     const industryColors = {
-      // Technology
+      // Tech & Comm
       'Software': 'blue',
       'Hardware': 'cyan',
       'Semiconductors': 'blue',
-      'Communication Equipment': 'cyan',
+      'Communication': 'pink',
       // Healthcare
-      'Biotechnology': 'teal',
-      'Medical Devices': 'green',
-      'Pharmaceuticals': 'teal',
-      'Drug Manufacturers': 'green',
+      'Biotech': 'teal',
+      'Medical': 'green',
+      'Pharma': 'teal',
       // Financial
       'Banks': 'purple',
       'Insurance': 'purple',
-      'Capital Markets': 'purple',
+      'Markets': 'purple',
       // Consumer
       'Retail': 'orange',
-      'Entertainment': 'pink',
+      'Media': 'pink',
       'Auto': 'orange',
-      'Travel Services': 'orange',
-      // Industrial & Energy
-      'Airlines': 'gray',
+      'Travel': 'orange',
+      // Industrial
+      'Transport': 'gray',
       'Mining': 'yellow',
-      'Oil & Gas': 'red',
+      'Oil': 'red',
       'Equipment': 'gray'
     }
-    return industryColors[industry] || getSectorColor(industry.split(' ')[0]) || 'gray'
+    // Try exact match first, then first word match, then sector color
+    return industryColors[industry] || 
+           industryColors[industry.split(' ')[0]] || 
+           getSectorColor(industry.split(' ')[0]) || 
+           'gray'
   }
 
   const formatDate = (dateString) => {
@@ -187,9 +188,86 @@ function App() {
     return Number(dailyReturns) >= 0 ? positiveColor : negativeColor
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
+  const fetchAllData = async () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    today.setDate(today.getDate() - 1)
+
+    let allData = []
+    let hasMore = true
+    let page = 0
+    const pageSize = 1000 // Maximum allowed by Supabase
+
+    while (hasMore) {
+      const { data, error, count } = await supabase
+        .from(selectedExchange)
+        .select('*', { count: 'exact' })
+        .gte('prediction_date', today.toISOString())
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+
+      if (error) {
+        console.error('Error fetching all data:', error)
+        break
+      }
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...data]
+        hasMore = allData.length < count
+        page++
+      } else {
+        hasMore = false
+      }
+    }
+
+    return allData
+  }
+
+  const calculateRatingStats = (stockData) => {
+    const stats = stockData.reduce((acc, stock) => {
+      const rating = stock.rating || 'Unrated'
+      if (!acc[rating]) {
+        acc[rating] = {
+          count: 0,
+          totalReturn: 0,
+          avgReturn: 0,
+          minReturn: Infinity,
+          maxReturn: -Infinity,
+          examples: []
+        }
+      }
+      
+      const stat = acc[rating]
+      stat.count++
+      
+      if (stock.expected_return !== null && stock.expected_return !== undefined) {
+        stat.totalReturn += stock.expected_return
+        stat.minReturn = Math.min(stat.minReturn, stock.expected_return)
+        stat.maxReturn = Math.max(stat.maxReturn, stock.expected_return)
+      }
+      
+      if (stat.examples.length < 3) {
+        stat.examples.push({
+          symbol: stock.symbol,
+          price: stock.current_price,
+          expected_return: stock.expected_return,
+          probability: stock.probability
+        })
+      }
+      
+      return acc
+    }, {})
+
+    // Calculate averages and format stats
+    Object.values(stats).forEach(stat => {
+      if (stat.count > 0) {
+        stat.avgReturn = stat.totalReturn / stat.count
+      }
+      if (stat.minReturn === Infinity) stat.minReturn = 0
+      if (stat.maxReturn === -Infinity) stat.maxReturn = 0
+    })
+
+    setRatingStats(stats)
+  }
 
   const fetchData = async (resetData = true) => {
     if (resetData) {
@@ -208,12 +286,25 @@ function App() {
       const pageSize = 50
       const currentPage = resetData ? 0 : page
 
+      // First get all data for stats (handles Supabase 1000 row limit)
+      const allData = await fetchAllData()
+      calculateRatingStats(allData)
+
+      // Extract unique values from all data
+      const uniqueSectors = [...new Set(allData.map(item => item.sector).filter(Boolean))]
+      const uniqueIndustries = [...new Set(allData.map(item => item.industry).filter(Boolean))]
+      const uniqueRatings = [...new Set(allData.map(item => item.rating).filter(Boolean))]
+      
+      setSectors(uniqueSectors.sort())
+      setIndustries(uniqueIndustries.sort())
+      setRatings(uniqueRatings.sort())
+
+      // Build query for paginated display data
       let query = supabase
         .from(selectedExchange)
         .select('*', { count: 'exact' })
         .gte('prediction_date', today.toISOString())
 
-      // Apply filters at database level
       if (symbolFilter) {
         query = query.ilike('symbol', `${symbolFilter}%`)
       }
@@ -221,7 +312,7 @@ function App() {
         query = query.ilike('company_name', `%${companyFilter}%`)
       }
       if (searchTerm) {
-        query = query.or(`symbol.ilike.%${searchTerm}%`,`company_name.ilike.%${searchTerm}%`,`sector.ilike.%${searchTerm}%`,`industry.ilike.%${searchTerm}%`)
+        query = query.or(`symbol.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,sector.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`)
       }
       if (selectedRating !== 'all') {
         query = query.eq('rating', selectedRating)
@@ -240,39 +331,7 @@ function App() {
         query = query.order('symbol', { ascending: true })
       }
 
-      // First fetch total counts for rating statistics without pagination
-      let allDataQuery = supabase
-        .from(selectedExchange)
-        .select('*')
-        .gte('prediction_date', today.toISOString())
-
-      // Apply same filters to allData query
-      if (symbolFilter) {
-        allDataQuery = allDataQuery.ilike('symbol', `${symbolFilter}%`)
-      }
-      if (companyFilter) {
-        allDataQuery = allDataQuery.ilike('company_name', `%${companyFilter}%`)
-      }
-      if (searchTerm) {
-        allDataQuery = allDataQuery.or(`symbol.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,sector.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`)
-      }
-      if (selectedRating !== 'all') {
-        allDataQuery = allDataQuery.eq('rating', selectedRating)
-      }
-      if (selectedSector !== 'all') {
-        allDataQuery = allDataQuery.eq('sector', selectedSector)
-      }
-      if (selectedIndustry !== 'all') {
-        allDataQuery = allDataQuery.eq('industry', selectedIndustry)
-      }
-
-      const { data: allData, error: statsError } = await allDataQuery
-
-      if (!statsError && allData) {
-        calculateRatingStats(allData)
-      }
-
-      // Then fetch paginated data for display
+      // Fetch paginated data for display
       const { data: pageData, error, count } = await query
         .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
 
@@ -282,14 +341,6 @@ function App() {
       setData(newData)
       setHasMore(newData.length < count)
       setPage(currentPage + 1)
-      
-      // Extract unique sectors, industries and ratings from all data
-      const uniqueSectors = [...new Set(allData.map(item => item.sector).filter(Boolean))]
-      const uniqueIndustries = [...new Set(allData.map(item => item.industry).filter(Boolean))]
-      const uniqueRatings = [...new Set(allData.map(item => item.rating).filter(Boolean))]
-      setSectors(uniqueSectors.sort())
-      setIndustries(uniqueIndustries.sort())
-      setRatings(uniqueRatings.sort())
 
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -302,33 +353,9 @@ function App() {
     }
   }
 
-  const calculateRatingStats = (stockData) => {
-    const stats = stockData.reduce((acc, stock) => {
-      const rating = stock.rating || 'Unrated'
-      if (!acc[rating]) {
-        acc[rating] = {
-          count: 0,
-          totalReturn: 0,
-          avgReturn: 0,
-          minReturn: Infinity,
-          maxReturn: -Infinity
-        }
-      }
-      acc[rating].count++
-      if (stock.expected_return) {
-        acc[rating].totalReturn += stock.expected_return
-        acc[rating].minReturn = Math.min(acc[rating].minReturn, stock.expected_return)
-        acc[rating].maxReturn = Math.max(acc[rating].maxReturn, stock.expected_return)
-      }
-      return acc
-    }, {})
-
-    Object.keys(stats).forEach(rating => {
-      stats[rating].avgReturn = stats[rating].totalReturn / stats[rating].count
-    })
-
-    setRatingStats(stats)
-  }
+  useEffect(() => {
+    fetchData()
+  }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
 
   const requestSort = (key) => {
     // Map UI column names to database column names
@@ -375,9 +402,10 @@ function App() {
             gap={2}
             borderColor={borderColor}
             borderWidth="1px"
+            flexWrap="wrap"
           >
             {/* Left side: Title and Exchange */}
-            <Flex align="center" gap={2}>
+            <Flex align="center" gap={2} flex="0 0 auto">
               <Flex align="center" gap={1}>
                 <Heading size="sm" bgGradient="linear(to-r, blue.400, teal.400)" bgClip="text" fontWeight="bold">
                   Swift
@@ -406,65 +434,64 @@ function App() {
                 size="xs"
                 colorScheme="blue"
                 leftIcon={<ViewIcon />}
-                ml={2}
               >
-                View History
+                History
               </Button>
             </Flex>
 
-            {/* Rating Statistics */}
-            <Flex flex={1} justify="center">
-              <SimpleGrid columns={6} spacing={1} maxW="fit-content">
-                {Object.entries(ratingStats).map(([rating, stats]) => {
-                  const ratingColors = {
-                    'Strong Buy': 'green.500',
-                    'Buy': 'teal.400',
-                    'Weak Buy': 'blue.400',
-                    'Strong Sell': 'red.500',
-                    'Sell': 'red.400',
-                    'Weak Sell': 'orange.400'
-                  };
-                  return (
-                    <Stat 
-                      key={rating} 
-                      px={1.5} 
-                      py={0.5} 
-                      bg={useColorModeValue('white', 'whiteAlpha.50')} 
-                      rounded="md" 
-                      borderWidth="1px" 
-                      borderColor={useColorModeValue(`${ratingColors[rating]}`, `${ratingColors[rating]}40`)}
-                      minW="70px"
-                      textAlign="center"
+            {/* Center: Rating Stats */}
+            <Flex flex="1 1 auto" justify="center" wrap="wrap" gap={1}>
+              {Object.entries(ratingStats)
+                .sort((a, b) => {
+                  const order = {
+                    'Strong Buy': 1,
+                    'Buy': 2,
+                    'Weak Buy': 3,
+                    'Weak Sell': 4,
+                    'Sell': 5,
+                    'Strong Sell': 6
+                  }
+                  return (order[a[0]] || 99) - (order[b[0]] || 99)
+                })
+                .map(([rating, stats]) => (
+                  <Stat 
+                    key={rating} 
+                    px={2} 
+                    py={0.5} 
+                    bg={`${getRatingColor(rating)}.500`}
+                    rounded="md" 
+                    minW="90px"
+                    maxW="120px"
+                    textAlign="center"
+                  >
+                    <StatLabel 
+                      color="white"
+                      fontSize="2xs"
+                      fontWeight="medium"
+                      mb={0}
+                      opacity={0.9}
                     >
-                      <StatLabel 
-                        color={ratingColors[rating]} 
-                        fontSize="2xs"
-                        fontWeight="medium"
-                        mb={0}
-                        whiteSpace="nowrap"
-                      >
-                        {rating.replace(' ', '\u00A0')}
-                      </StatLabel>
-                      <StatNumber 
-                        fontSize="xs" 
-                        color={textColor}
-                        fontWeight="bold"
-                      >
+                      {rating.replace('Strong ', 'S.')}
+                    </StatLabel>
+                    <Flex justify="center" align="center" gap={1}>
+                      <StatNumber fontSize="sm" color="white" fontWeight="bold">
                         {stats.count}
                       </StatNumber>
-                    </Stat>
-                  );
-                })}
-              </SimpleGrid>
+                      <Text fontSize="xs" color="white" opacity={0.9}>
+                        {formatValue(stats.avgReturn * 100, 1)}%
+                      </Text>
+                    </Flex>
+                  </Stat>
+              ))}
             </Flex>
 
             {/* Right side: Actions */}
-            <HStack spacing={1}>
+            <Flex gap={1} flex="0 0 auto">
               <IconButton
                 icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
                 onClick={toggleColorMode}
                 variant="ghost"
-                size="xs"
+                size="sm"
                 aria-label="Toggle color mode"
               />
               <Menu>
@@ -472,16 +499,16 @@ function App() {
                   as={IconButton}
                   icon={<SettingsIcon />}
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                 />
                 <MenuList>
                   <MenuItem as={Link} to="/history" icon={<ViewIcon />}>View History</MenuItem>
                   <MenuItem icon={<DownloadIcon />}>Download Data</MenuItem>
-                  <MenuItem icon={<RepeatIcon />}>Refresh Data</MenuItem>
+                  <MenuItem icon={<RepeatIcon />} onClick={() => fetchData(true)}>Refresh Data</MenuItem>
                   <MenuItem icon={<ViewIcon />}>Column Settings</MenuItem>
                 </MenuList>
               </Menu>
-            </HStack>
+            </Flex>
           </Flex>
 
           {/* Improved Filter Layout */}
