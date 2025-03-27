@@ -190,19 +190,16 @@ function App() {
 
   const fetchAllData = async () => {
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    today.setDate(today.getDate() - 1)
-
     let allData = []
     let hasMore = true
     let page = 0
-    const pageSize = 1000 // Maximum allowed by Supabase
+    const pageSize = 1000
 
     while (hasMore) {
       const { data, error, count } = await supabase
         .from(selectedExchange)
         .select('*', { count: 'exact' })
-        .gte('prediction_date', today.toISOString())
+        .gte('prediction_date', today.toISOString().split('T')[0])
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
       if (error) {
@@ -280,9 +277,6 @@ function App() {
 
     try {
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      today.setDate(today.getDate() - 1)
-
       const pageSize = 50
       const currentPage = resetData ? 0 : page
 
@@ -303,7 +297,7 @@ function App() {
       let query = supabase
         .from(selectedExchange)
         .select('*', { count: 'exact' })
-        .gte('prediction_date', today.toISOString())
+        .gte('prediction_date', today.toISOString().split('T')[0])
 
       if (symbolFilter) {
         query = query.ilike('symbol', `${symbolFilter}%`)
