@@ -355,7 +355,7 @@ function App() {
     // Map UI column names to database column names
     const columnMap = {
       'buy_score': 'probability',
-      'rsi': 'rsi_14',
+      'rsi': 'rsi',
       'macd': 'macd_signal',
       'vol': 'volume',
       'mcap': 'market_cap',
@@ -765,7 +765,7 @@ function App() {
                         _hover={{ color: textColor }}
                       >
                         RSI
-                        <SortIndicator columnKey="rsi_14" />
+                        <SortIndicator columnKey="rsi" />
                       </Th>
                       <Th 
                         py={2} 
@@ -922,8 +922,8 @@ function App() {
                         <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.probability, 50)}>
                           {formatValue(stock?.probability, 1, true)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi_14, 50)}>
-                          {formatValue(stock?.rsi_14)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi, 50)}>
+                          {formatValue(stock?.rsi)}
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd_signal)}>
                           {formatValue(stock?.macd_signal)}
