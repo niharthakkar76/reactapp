@@ -1,474 +1,430 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { Link as RouterLink } from 'react-router-dom'
 import {
   Box,
   Container,
   VStack,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
   Text,
   Heading,
   useColorModeValue,
-  Badge,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  Flex,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatGroup,
   Card,
   CardBody,
   SimpleGrid,
   Progress,
-  Tooltip,
-  Select,
-  HStack,
-  IconButton,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
   Button,
+  Flex,
+  Spinner,
+  Center,
+  HStack,
+  useColorMode,
+  IconButton,
+  Spacer,
 } from '@chakra-ui/react'
-import { SearchIcon, ArrowBackIcon, ViewIcon } from '@chakra-ui/icons'
-import { Link as RouterLink } from 'react-router-dom'
+import { 
+  SunIcon, 
+  MoonIcon,
+  ViewIcon,
+} from '@chakra-ui/icons'
 
 function History() {
-  const [data, setData] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
+  const { colorMode, toggleColorMode } = useColorMode()
   const [loading, setLoading] = useState(true)
-  const [selectedExchange, setSelectedExchange] = useState('all')
-  const [aggregateStats, setAggregateStats] = useState({
-    totalBuySignals: 0,
-    successfulBuySignals: 0,
-    totalSellSignals: 0,
-    successfulSellSignals: 0
+  const [marketStats, setMarketStats] = useState({
+    nasdaq: {
+      buy: { success: 0, total: 0, avgChange: 0 },
+      weak_buy: { success: 0, total: 0, avgChange: 0 },
+      strong_sell: { success: 0, total: 0, avgChange: 0 },
+      sell: { success: 0, total: 0, avgChange: 0 }
+    },
+    nyse: {
+      buy: { success: 0, total: 0, avgChange: 0 },
+      weak_buy: { success: 0, total: 0, avgChange: 0 },
+      strong_sell: { success: 0, total: 0, avgChange: 0 },
+      sell: { success: 0, total: 0, avgChange: 0 }
+    },
+    lse: {
+      buy: { success: 0, total: 0, avgChange: 0 },
+      weak_buy: { success: 0, total: 0, avgChange: 0 },
+      strong_sell: { success: 0, total: 0, avgChange: 0 },
+      sell: { success: 0, total: 0, avgChange: 0 }
+    },
+    fse: {
+      buy: { success: 0, total: 0, avgChange: 0 },
+      weak_buy: { success: 0, total: 0, avgChange: 0 },
+      strong_sell: { success: 0, total: 0, avgChange: 0 },
+      sell: { success: 0, total: 0, avgChange: 0 }
+    }
   })
 
-  // Colors
+  const ratingLabels = {
+    buy: 'Buy',
+    weak_buy: 'Weak Buy',
+    strong_sell: 'Strong Sell',
+    sell: 'Sell'
+  }
+
+  // Color theme values
   const bgColor = useColorModeValue('gray.50', '#000000')
   const cardBgColor = useColorModeValue('white', '#121212')
   const textColor = useColorModeValue('gray.800', '#ffffff')
   const mutedTextColor = useColorModeValue('gray.600', '#888888')
   const borderColor = useColorModeValue('gray.200', '#202020')
+  const hoverBgColor = useColorModeValue('gray.50', '#1c1c1c')
   const positiveColor = useColorModeValue('green.500', '#00873c')
   const negativeColor = useColorModeValue('red.500', '#ff4d4d')
+  const navBgColor = useColorModeValue('white', '#121212')
+
+  const fetchExchangeData = async (exchange, offset = 0, limit = 1000) => {
+    // Remove order by prediction_date to get all historical data
+    const { data, error, count } = await supabase
+      .from(exchange.table)
+      .select('symbol, rating, current_price, prediction_date, expected_return', { count: 'exact' })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error(`Error fetching ${exchange.name}:`, error)
+      return { data: [], count: 0 }
+    }
+
+    return { data, count }
+  }
+
+  const validatePrediction = (rating, currentPrice, previousPrice) => {
+    const priceChange = ((currentPrice - previousPrice) / previousPrice) * 100
+    
+    // For buy signals, prediction is correct if price went up
+    if (rating.includes('buy')) {
+      return priceChange > 0
+    }
+    
+    // For sell signals, prediction is correct if price went down
+    if (rating.includes('sell')) {
+      return priceChange < 0
+    }
+
+    return false
+  }
+
+  const processSymbolData = (predictions, marketStats, exchange) => {
+    // Sort predictions by date ascending to process them in chronological order
+    predictions.sort((a, b) => new Date(a.prediction_date) - new Date(b.prediction_date))
+
+    // Group predictions by date to handle multiple predictions per day
+    const predictionsByDate = {}
+    predictions.forEach(pred => {
+      // Convert strong_buy to buy and weak_sell to sell
+      if (pred.rating) {
+        if (pred.rating.toLowerCase() === 'strong_buy') {
+          pred.rating = 'buy'
+        } else if (pred.rating.toLowerCase() === 'weak_sell') {
+          pred.rating = 'sell'
+        }
+      }
+
+      const dateKey = new Date(pred.prediction_date).toISOString().split('T')[0]
+      if (!predictionsByDate[dateKey]) {
+        predictionsByDate[dateKey] = []
+      }
+      predictionsByDate[dateKey].push(pred)
+    })
+
+    const dates = Object.keys(predictionsByDate).sort()
+    
+    // Process each day's predictions
+    for (let i = 0; i < dates.length - 1; i++) {
+      const currentDate = dates[i]
+      const nextDate = dates[i + 1]
+      
+      const currentPredictions = predictionsByDate[currentDate]
+      const nextPredictions = predictionsByDate[nextDate]
+
+      // Process each prediction for the current date
+      currentPredictions.forEach(current => {
+        // Find matching symbol in next day's predictions
+        const next = nextPredictions.find(p => p.symbol === current.symbol)
+        if (!next) return
+
+        if (!current?.current_price || !next?.current_price || !current?.rating) {
+          return
+        }
+
+        const rating = current.rating.toLowerCase().replace(/\s+/g, '_')
+        if (!marketStats[exchange.name][rating]) return
+
+        const priceChange = ((next.current_price - current.current_price) / current.current_price) * 100
+        
+        marketStats[exchange.name][rating].total++
+        marketStats[exchange.name][rating].totalChange += Math.abs(priceChange)
+
+        // Simple validation - just check price movement direction
+        if (validatePrediction(rating, next.current_price, current.current_price)) {
+          marketStats[exchange.name][rating].success++
+        }
+      })
+    }
+  }
 
   const fetchData = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      let data = [];
-      
-      if (selectedExchange === 'all') {
-        // Fetch data from each exchange
-        const exchanges = [
-          'nasdaq_stock_data',
-          'nyse_stock_data',
-          'lse_stock_data',
-          'fse_stock_data'
-        ];
+      const exchanges = [
+        { name: 'nasdaq', table: 'nasdaq_stock_data' },
+        { name: 'nyse', table: 'nyse_stock_data' },
+        { name: 'lse', table: 'lse_stock_data' },
+        { name: 'fse', table: 'fse_stock_data' }
+      ]
 
-        for (const exchange of exchanges) {
-          const { data: exchangeData, error } = await supabase
-            .from(exchange)
-            .select('*')
-            .order('prediction_date', { ascending: true });
+      const newMarketStats = { ...marketStats }
 
-          if (error) {
-            console.error(`Error fetching ${exchange}:`, error);
-            continue;
+      for (const exchange of exchanges) {
+        console.log(`Fetching data for ${exchange.name}...`)
+        
+        // Initialize exchange stats with only the categories we want
+        newMarketStats[exchange.name] = {
+          buy: { success: 0, total: 0, totalChange: 0 },
+          weak_buy: { success: 0, total: 0, totalChange: 0 },
+          strong_sell: { success: 0, total: 0, totalChange: 0 },
+          sell: { success: 0, total: 0, totalChange: 0 }
+        }
+
+        let allData = []
+        let offset = 0
+        let hasMore = true
+        let totalCount = 0
+
+        // Fetch all data in batches
+        while (hasMore) {
+          console.log(`Fetching batch at offset ${offset} for ${exchange.name}...`)
+          const { data: batch, count } = await fetchExchangeData(exchange, offset)
+          
+          if (!batch || batch.length === 0) {
+            hasMore = false
+            continue
           }
 
-          if (exchangeData && exchangeData.length > 0) {
-            console.log(`${exchange} data:`, exchangeData[0]); // Log sample data
-            const processedData = processExchangeData(exchangeData, exchange);
-            data = [...data, ...processedData];
+          allData = [...allData, ...batch]
+          offset += batch.length
+          totalCount = count
+
+          if (offset >= count) {
+            hasMore = false
           }
+
+          // Log progress
+          console.log(`Progress: ${allData.length}/${totalCount} records (${((allData.length/totalCount)*100).toFixed(1)}%)`)
         }
-      } else {
-        // Fetch data for specific exchange
-        const { data: exchangeData, error } = await supabase
-          .from(selectedExchange)
-          .select('*')
-          .order('prediction_date', { ascending: true });
 
-        if (error) throw error;
+        console.log(`Received total ${allData.length} records for ${exchange.name}`)
 
-        if (exchangeData) {
-          data = processExchangeData(exchangeData, selectedExchange);
-        }
+        // Group by symbol
+        const symbolData = {}
+        allData.forEach(row => {
+          if (!symbolData[row.symbol]) {
+            symbolData[row.symbol] = []
+          }
+          symbolData[row.symbol].push({
+            ...row,
+            prediction_date: new Date(row.prediction_date)
+          })
+        })
+
+        const symbolCount = Object.keys(symbolData).length
+        console.log(`Processing ${symbolCount} symbols for ${exchange.name}`)
+        
+        let processedCount = 0
+        // Process each symbol's historical data
+        Object.entries(symbolData).forEach(([symbol, predictions]) => {
+          processSymbolData(predictions, newMarketStats, exchange)
+          processedCount++
+          
+          // Log progress every 100 symbols
+          if (processedCount % 100 === 0) {
+            console.log(`Processed ${processedCount}/${symbolCount} symbols (${((processedCount/symbolCount)*100).toFixed(1)}%)`)
+          }
+        })
+
+        // Calculate averages and log statistics
+        Object.keys(newMarketStats[exchange.name]).forEach(rating => {
+          const stats = newMarketStats[exchange.name][rating]
+          stats.avgChange = stats.total > 0 
+            ? (stats.totalChange / stats.total).toFixed(2)
+            : 0
+          delete stats.totalChange
+
+          const successRate = stats.total > 0 ? ((stats.success/stats.total)*100).toFixed(2) : 'N/A'
+          console.log(`${exchange.name} ${rating}: ${stats.success}/${stats.total} (${successRate}%) avg change: ${stats.avgChange}%`)
+        })
+
+        console.log(`Completed processing ${exchange.name}:`, newMarketStats[exchange.name])
       }
 
-      if (searchTerm) {
-        data = data.filter(item => 
-          item.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      if (data.length > 0) {
-        const sortedData = sortData(data);
-        setData(sortedData);
-        setAggregateStats(calculateStats(sortedData));
-      } else {
-        setData([]);
-        setAggregateStats({
-          totalBuySignals: 0,
-          successfulBuySignals: 0,
-          totalSellSignals: 0,
-          successfulSellSignals: 0
-        });
-      }
+      setMarketStats(newMarketStats)
     } catch (error) {
-      console.error('Error fetching metrics:', error);
+      console.error('Error in fetchData:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-
-  // Helper function to process exchange data
-  const processExchangeData = (data, exchange) => {
-    const symbolData = {};
-    
-    // Group by symbol and sort by prediction_date
-    data.forEach(row => {
-      if (!symbolData[row.symbol]) {
-        symbolData[row.symbol] = {
-          predictions: [],
-          symbol: row.symbol,
-          exchange: exchange.split('_')[0].toUpperCase()
-        };
-      }
-      symbolData[row.symbol].predictions.push(row);
-    });
-
-    // Sort predictions by date for each symbol
-    Object.values(symbolData).forEach(item => {
-      item.predictions.sort((a, b) => new Date(a.prediction_date) - new Date(b.prediction_date));
-    });
-
-    // Calculate metrics for each symbol
-    return Object.values(symbolData).map(item => {
-      const metrics = calculateMetrics(item.predictions);
-      return {
-        symbol: item.symbol,
-        exchange: item.exchange,
-        ...metrics
-      };
-    });
-  };
-
-  // Helper function to calculate metrics
-  const calculateMetrics = (predictions) => {
-    const metrics = {
-      strong_buy: { success: 0, fail: 0 },
-      buy: { success: 0, fail: 0 },
-      weak_buy: { success: 0, fail: 0 },
-      strong_sell: { success: 0, fail: 0 },
-      sell: { success: 0, fail: 0 },
-      weak_sell: { success: 0, fail: 0 }
-    };
-
-    for (let i = 0; i < predictions.length - 1; i++) {
-      const current = predictions[i];
-      const next = predictions[i + 1];
-      const rating = current.rating.toLowerCase();
-      const priceIncreased = next.current_price > current.current_price;
-
-      if (rating.includes('strong buy')) {
-        priceIncreased ? metrics.strong_buy.success++ : metrics.strong_buy.fail++;
-      } else if (rating.includes('weak buy')) {
-        priceIncreased ? metrics.weak_buy.success++ : metrics.weak_buy.fail++;
-      } else if (rating.includes('buy')) {
-        priceIncreased ? metrics.buy.success++ : metrics.buy.fail++;
-      } else if (rating.includes('strong sell')) {
-        !priceIncreased ? metrics.strong_sell.success++ : metrics.strong_sell.fail++;
-      } else if (rating.includes('weak sell')) {
-        !priceIncreased ? metrics.weak_sell.success++ : metrics.weak_sell.fail++;
-      } else if (rating.includes('sell')) {
-        !priceIncreased ? metrics.sell.success++ : metrics.sell.fail++;
-      }
-    }
-
-    return {
-      strong_buy_success: metrics.strong_buy.success,
-      strong_buy_fail: metrics.strong_buy.fail,
-      buy_success: metrics.buy.success,
-      buy_fail: metrics.buy.fail,
-      weak_buy_success: metrics.weak_buy.success,
-      weak_buy_fail: metrics.weak_buy.fail,
-      strong_sell_success: metrics.strong_sell.success,
-      strong_sell_fail: metrics.strong_sell.fail,
-      sell_success: metrics.sell.success,
-      sell_fail: metrics.sell.fail,
-      weak_sell_success: metrics.weak_sell.success,
-      weak_sell_fail: metrics.weak_sell.fail
-    };
-  };
-
-  // Helper function to calculate stats
-  const calculateStats = (data) => {
-    return data.reduce((acc, item) => ({
-      totalBuySignals: acc.totalBuySignals + 
-        item.strong_buy_success + item.strong_buy_fail +
-        item.buy_success + item.buy_fail +
-        item.weak_buy_success + item.weak_buy_fail,
-      successfulBuySignals: acc.successfulBuySignals + 
-        item.strong_buy_success + item.buy_success + item.weak_buy_success,
-      totalSellSignals: acc.totalSellSignals + 
-        item.strong_sell_success + item.strong_sell_fail +
-        item.sell_success + item.sell_fail +
-        item.weak_sell_success + item.weak_sell_fail,
-      successfulSellSignals: acc.successfulSellSignals + 
-        item.strong_sell_success + item.sell_success + item.weak_sell_success
-    }), {
-      totalBuySignals: 0,
-      successfulBuySignals: 0,
-      totalSellSignals: 0,
-      successfulSellSignals: 0
-    });
-  };
-
-  // Helper function to calculate percentage
-  const calculatePercentage = (success, total) => {
-    if (!total) return null; 
-    return Math.round((success / total) * 100);
-  };
-
-  // Helper function to format badge text
-  const formatBadgeText = (success, total) => {
-    if (total === 0) return '0%';
-    const percentage = Math.round((success / total) * 100);
-    return `${percentage}% (${success}/${total})`;
-  };
-
-  // Helper function to sort data
-  const sortData = (data) => {
-    return [...data].sort((a, b) => {
-      if (a.exchange !== b.exchange) {
-        return a.exchange.localeCompare(b.exchange);
-      }
-      return a.symbol.localeCompare(b.symbol);
-    });
-  };
+  }
 
   useEffect(() => {
     fetchData()
-  }, [searchTerm, selectedExchange])
-
-  const formatPercentage = (value) => {
-    if (!value) return '0%'
-    return `${value.toFixed(2)}%`
-  }
-
-  const getSuccessRate = (successful, total) => {
-    if (!total) return 0
-    return (successful / total) * 100
-  }
+  }, [])
 
   return (
-    <Box minH="100vh" bg={bgColor} w="100%">
+    <Box minH="100vh" bg={bgColor}>
       {/* Navbar */}
-      <Box
-        py={2}
-        px={4}
-        bg={cardBgColor}
-        position="sticky"
-        top={0}
-        zIndex={2}
-        borderBottom="1px"
-        borderColor={borderColor}
-      >
-        <Flex justify="space-between" align="center" maxW="container.xl" mx="auto">
-          {/* Left side: Logo and Navigation */}
-          <Flex align="center" gap={2}>
-            <Flex align="center" gap={1}>
-              <Heading size="sm" bgGradient="linear(to-r, blue.400, teal.400)" bgClip="text" fontWeight="bold">
-                Swift
-              </Heading>
-              <Heading size="sm" color={textColor} fontWeight="bold">
-                Signal
-              </Heading>
-            </Flex>
-            <Button
-              as={RouterLink}
-              to="/dashboard"
-              size="xs"
-              colorScheme="blue"
-              leftIcon={<ViewIcon />}
-              ml={2}
-            >
-              Dashboard
-            </Button>
-          </Flex>
+      <Box py={2} px={4} bg={navBgColor} borderBottom="1px" borderColor={borderColor} position="sticky" top="0" zIndex="sticky">
+        <Flex maxW="container.xl" mx="auto" align="center">
+          <RouterLink to="/dashboard">
+            <HStack spacing={2}>
+              <Text
+                fontSize="2xl"
+                fontWeight="bold"
+                bgGradient="linear(to-r, blue.400, teal.400)"
+                bgClip="text"
+                _hover={{ 
+                  bgGradient: "linear(to-r, blue.500, teal.500)",
+                  transform: "scale(1.05)",
+                  transition: "all 0.2s ease-in-out"
+                }}
+              >
+                Swift Signal
+              </Text>
+            </HStack>
+          </RouterLink>
+          
+          <Spacer />
 
-          {/* Right side: Exchange Selector */}
-          <Select
-            value={selectedExchange}
-            onChange={(e) => setSelectedExchange(e.target.value)}
-            size="sm"
-            w="200px"
-            bg={cardBgColor}
-          >
-            <option value="all">All Exchanges</option>
-            <option value="nasdaq_stock_data">NASDAQ</option>
-            <option value="nyse_stock_data">NYSE</option>
-            <option value="lse_stock_data">LSE</option>
-            <option value="fse_stock_data">FSE</option>
-          </Select>
+          <HStack spacing={4}>
+            <IconButton
+              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              onClick={toggleColorMode}
+              variant="ghost"
+              aria-label="Toggle color mode"
+              _hover={{ bg: hoverBgColor }}
+            />
+          </HStack>
         </Flex>
       </Box>
 
       {/* Main Content */}
-      <Container maxW="container.xl" p={4}>
-        <VStack spacing={6} align="stretch" w="100%">
-          <Heading size="lg">Prediction History</Heading>
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={8} align="stretch">
+          {/* Header Section */}
+          <Box textAlign="center" mb={4}>
+            <Heading 
+              size="xl" 
+              mb={4}
+              bgGradient="linear(to-r, blue.400, teal.400)"
+              bgClip="text"
+            >
+              Prediction Performance
+            </Heading>
+            <Text color={mutedTextColor} fontSize="lg">
+              Historical analysis of trading signals across major exchanges
+            </Text>
+          </Box>
 
-          {/* Summary Statistics */}
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="100%">
-            {/* Buy Signals Card */}
-            <Card bg={cardBgColor} borderColor={borderColor} borderWidth="1px" w="100%">
-              <CardBody>
-                <StatGroup>
-                  <Stat>
-                    <StatLabel color={mutedTextColor}>Buy Signals Success</StatLabel>
-                    <StatNumber color={positiveColor}>
-                      {formatPercentage(getSuccessRate(aggregateStats.successfulBuySignals, aggregateStats.totalBuySignals))}
-                    </StatNumber>
-                    <Text fontSize="sm" color={mutedTextColor}>
-                      {aggregateStats.successfulBuySignals} of {aggregateStats.totalBuySignals} signals
-                    </Text>
-                    <Progress 
-                      value={getSuccessRate(aggregateStats.successfulBuySignals, aggregateStats.totalBuySignals)}
-                      size="sm"
-                      colorScheme="green"
-                      mt={2}
-                    />
-                  </Stat>
-                </StatGroup>
-              </CardBody>
-            </Card>
-
-            {/* Sell Signals Card */}
-            <Card bg={cardBgColor} borderColor={borderColor} borderWidth="1px" w="100%">
-              <CardBody>
-                <StatGroup>
-                  <Stat>
-                    <StatLabel color={mutedTextColor}>Sell Signals Success</StatLabel>
-                    <StatNumber color={positiveColor}>
-                      {formatPercentage(getSuccessRate(aggregateStats.successfulSellSignals, aggregateStats.totalSellSignals))}
-                    </StatNumber>
-                    <Text fontSize="sm" color={mutedTextColor}>
-                      {aggregateStats.successfulSellSignals} of {aggregateStats.totalSellSignals} signals
-                    </Text>
-                    <Progress 
-                      value={getSuccessRate(aggregateStats.successfulSellSignals, aggregateStats.totalSellSignals)}
-                      size="sm"
-                      colorScheme="red"
-                      mt={2}
-                    />
-                  </Stat>
-                </StatGroup>
-              </CardBody>
-            </Card>
-          </SimpleGrid>
-
-          {/* Search and Table Container */}
-          <VStack spacing={4} w="100%">
-            <InputGroup maxW="300px" alignSelf="flex-start">
-              <InputLeftElement pointerEvents="none">
-                <SearchIcon color="gray.300" />
-              </InputLeftElement>
-              <Input
-                placeholder="Search by symbol..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+          {/* Stats Grid */}
+          <SimpleGrid 
+            columns={{ base: 1, md: 2, lg: 4 }} 
+            spacing={6}
+            sx={{
+              '& > div': {
+                transform: 'scale(1)',
+                transition: 'all 0.2s ease-in-out'
+              },
+              '& > div:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: 'xl'
+              }
+            }}
+          >
+            {Object.entries(marketStats).map(([exchange, stats]) => (
+              <Card
+                key={exchange}
+                overflow="hidden"
+                variant="elevated"
                 bg={cardBgColor}
-              />
-            </InputGroup>
-
-            {/* Results Table */}
-            <Box overflowX="auto" borderWidth="1px" borderColor={borderColor} borderRadius="lg" boxShadow="sm" w="100%">
-              <Table size="sm" variant="simple">
-                <Thead>
-                  <Tr bg={useColorModeValue('gray.50', 'gray.800')}>
-                    <Th position="sticky" top={0} bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} width="120px">Symbol</Th>
-                    <Th position="sticky" top={0} bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} width="100px">Exchange</Th>
-                    <Th position="sticky" top={0} bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} colSpan={3} textAlign="center" borderLeft="1px" borderLeftColor={borderColor}>Buy Signals</Th>
-                    <Th position="sticky" top={0} bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} colSpan={3} textAlign="center" borderLeft="1px" borderLeftColor={borderColor}>Sell Signals</Th>
-                  </Tr>
-                  <Tr bg={useColorModeValue('gray.50', 'gray.800')}>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}></Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}></Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} borderLeft="1px" borderLeftColor={borderColor}>Strong</Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}>Normal</Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}>Weak</Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1} borderLeft="1px" borderLeftColor={borderColor}>Strong</Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}>Normal</Th>
-                    <Th position="sticky" top="40px" bg={useColorModeValue('gray.50', 'gray.800')} zIndex={1}>Weak</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {data.map((item, index) => {
-                    const strongBuyTotal = item.strong_buy_success + item.strong_buy_fail;
-                    const buyTotal = item.buy_success + item.buy_fail;
-                    const weakBuyTotal = item.weak_buy_success + item.weak_buy_fail;
-                    const strongSellTotal = item.strong_sell_success + item.strong_sell_fail;
-                    const sellTotal = item.sell_success + item.sell_fail;
-                    const weakSellTotal = item.weak_sell_success + item.weak_sell_fail;
-
-                    // Check if this is a new exchange group
-                    const isNewExchange = index === 0 || item.exchange !== data[index - 1].exchange;
-                    
-                    return (
-                      <Tr key={`${item.symbol}-${item.exchange}`}
-                          _hover={{ bg: useColorModeValue('gray.50', 'gray.900') }}
-                          borderTopWidth={isNewExchange ? "2px" : "1px"}
-                          borderTopColor={isNewExchange ? borderColor : "inherit"}>
-                        <Td py={1.5} fontWeight="medium">{item.symbol}</Td>
-                        <Td py={1.5} color={mutedTextColor}>{item.exchange}</Td>
-                        <Td py={1.5} borderLeft="1px" borderLeftColor={borderColor}>
-                          <Badge size="sm" variant="subtle" colorScheme={strongBuyTotal > 0 ? (item.strong_buy_success >= strongBuyTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.strong_buy_success, strongBuyTotal)}
-                          </Badge>
-                        </Td>
-                        <Td py={1.5}>
-                          <Badge size="sm" variant="subtle" colorScheme={buyTotal > 0 ? (item.buy_success >= buyTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.buy_success, buyTotal)}
-                          </Badge>
-                        </Td>
-                        <Td py={1.5}>
-                          <Badge size="sm" variant="subtle" colorScheme={weakBuyTotal > 0 ? (item.weak_buy_success >= weakBuyTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.weak_buy_success, weakBuyTotal)}
-                          </Badge>
-                        </Td>
-                        <Td py={1.5} borderLeft="1px" borderLeftColor={borderColor}>
-                          <Badge size="sm" variant="subtle" colorScheme={strongSellTotal > 0 ? (item.strong_sell_success >= strongSellTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.strong_sell_success, strongSellTotal)}
-                          </Badge>
-                        </Td>
-                        <Td py={1.5}>
-                          <Badge size="sm" variant="subtle" colorScheme={sellTotal > 0 ? (item.sell_success >= sellTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.sell_success, sellTotal)}
-                          </Badge>
-                        </Td>
-                        <Td py={1.5}>
-                          <Badge size="sm" variant="subtle" colorScheme={weakSellTotal > 0 ? (item.weak_sell_success >= weakSellTotal/2 ? 'green' : 'red') : 'gray'}>
-                            {formatBadgeText(item.weak_sell_success, weakSellTotal)}
-                          </Badge>
-                        </Td>
-                      </Tr>
-                    );
-                  })}
-                </Tbody>
-              </Table>
-            </Box>
-          </VStack>
+                borderRadius="xl"
+              >
+                <Box 
+                  p={1} 
+                  bgGradient="linear(to-r, blue.400, teal.400)"
+                />
+                <CardBody p={6}>
+                  <Heading 
+                    size="md" 
+                    mb={4} 
+                    textTransform="uppercase"
+                    letterSpacing="wide"
+                  >
+                    {exchange}
+                  </Heading>
+                  
+                  <VStack spacing={5} align="stretch">
+                    {Object.entries(stats).map(([rating, data]) => {
+                      const successRate = data.total > 0 
+                        ? (data.success / data.total * 100).toFixed(1)
+                        : 0
+                      
+                      return (
+                        <Box key={rating}>
+                          <Flex justify="space-between" align="center" mb={2}>
+                            <Text 
+                              fontWeight="bold" 
+                              color={textColor}
+                              fontSize="md"
+                            >
+                              {ratingLabels[rating]}
+                            </Text>
+                            <Text 
+                              color={successRate >= 50 ? positiveColor : negativeColor}
+                              fontWeight="bold"
+                            >
+                              {successRate}%
+                            </Text>
+                          </Flex>
+                          <Progress 
+                            value={successRate}
+                            size="sm"
+                            colorScheme={successRate >= 50 ? "green" : "red"}
+                            mb={2}
+                            borderRadius="full"
+                            hasStripe
+                            isAnimated
+                          />
+                          <Flex justify="space-between" fontSize="sm" color={mutedTextColor}>
+                            <Text>Success: {data.success}/{data.total}</Text>
+                            <Text>Avg Δ: {data.avgChange}%</Text>
+                          </Flex>
+                        </Box>
+                      )
+                    })}
+                  </VStack>
+                </CardBody>
+              </Card>
+            ))}
+          </SimpleGrid>
         </VStack>
+
+        {loading && (
+          <Center mt={8} p={8}>
+            <VStack spacing={4}>
+              <Spinner size="xl" thickness="4px" speed="0.65s" color="blue.500" />
+              <Text color={mutedTextColor}>Loading performance data...</Text>
+            </VStack>
+          </Center>
+        )}
       </Container>
     </Box>
   )
+
 }
 
 export default History
