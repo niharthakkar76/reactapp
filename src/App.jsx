@@ -70,7 +70,10 @@ function App() {
   const [selectedRating, setSelectedRating] = useState('all')
   const [selectedSector, setSelectedSector] = useState('all')
   const [selectedIndustry, setSelectedIndustry] = useState('all')
-  const [selectedExchange, setSelectedExchange] = useState('nasdaq_stock_data')
+  const [selectedExchange, setSelectedExchange] = useState(() => {
+    // Initialize from localStorage or default to nasdaq
+    return localStorage.getItem('selectedExchange') || 'nasdaq_stock_data'
+  })
   const [ratingStats, setRatingStats] = useState({})
   const [sectors, setSectors] = useState([])
   const [industries, setIndustries] = useState([])
@@ -347,6 +350,15 @@ function App() {
     }
   }
 
+  const handleExchangeChange = (exchange) => {
+    setSelectedExchange(exchange)
+    localStorage.setItem('selectedExchange', exchange)
+    setPage(0)
+    setData([])
+    setHasMore(true)
+    fetchData(true)
+  }
+
   useEffect(() => {
     fetchData()
   }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
@@ -412,7 +424,7 @@ function App() {
               </Text>
               <Select
                 value={selectedExchange}
-                onChange={(e) => setSelectedExchange(e.target.value)}
+                onChange={(e) => handleExchangeChange(e.target.value)}
                 size="xs"
                 w="80px"
               >
