@@ -34,32 +34,148 @@ import {
 function History() {
   const { colorMode, toggleColorMode } = useColorMode()
   const [loading, setLoading] = useState(true)
-  const [marketStats, setMarketStats] = useState({
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const CACHE_KEY = 'marketStatsCache'
+  const CACHE_EXPIRY = 15 * 60 * 1000 // 15 minutes in milliseconds
+
+  const initialStats = {
     nasdaq: {
-      buy: { success: 0, total: 0, avgChange: 0 },
-      weak_buy: { success: 0, total: 0, avgChange: 0 },
-      strong_sell: { success: 0, total: 0, avgChange: 0 },
-      sell: { success: 0, total: 0, avgChange: 0 }
+      buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      weak_buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      strong_sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      }
     },
     nyse: {
-      buy: { success: 0, total: 0, avgChange: 0 },
-      weak_buy: { success: 0, total: 0, avgChange: 0 },
-      strong_sell: { success: 0, total: 0, avgChange: 0 },
-      sell: { success: 0, total: 0, avgChange: 0 }
+      buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      weak_buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      strong_sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      }
     },
     lse: {
-      buy: { success: 0, total: 0, avgChange: 0 },
-      weak_buy: { success: 0, total: 0, avgChange: 0 },
-      strong_sell: { success: 0, total: 0, avgChange: 0 },
-      sell: { success: 0, total: 0, avgChange: 0 }
+      buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      weak_buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      strong_sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      }
     },
     fse: {
-      buy: { success: 0, total: 0, avgChange: 0 },
-      weak_buy: { success: 0, total: 0, avgChange: 0 },
-      strong_sell: { success: 0, total: 0, avgChange: 0 },
-      sell: { success: 0, total: 0, avgChange: 0 }
+      buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      weak_buy: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      strong_sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      },
+      sell: { 
+        success: 0, 
+        total: 0, 
+        upwardChange: 0,
+        downwardChange: 0,
+        upCount: 0,
+        downCount: 0
+      }
     }
-  })
+  }
 
   const ratingLabels = {
     buy: 'Buy',
@@ -68,7 +184,6 @@ function History() {
     sell: 'Sell'
   }
 
-  // Color theme values
   const bgColor = useColorModeValue('gray.50', '#000000')
   const cardBgColor = useColorModeValue('white', '#121212')
   const textColor = useColorModeValue('gray.800', '#ffffff')
@@ -80,7 +195,6 @@ function History() {
   const navBgColor = useColorModeValue('white', '#121212')
 
   const fetchExchangeData = async (exchange, offset = 0, limit = 1000) => {
-    // Remove order by prediction_date to get all historical data
     const { data, error, count } = await supabase
       .from(exchange.table)
       .select('symbol, rating, current_price, prediction_date, expected_return', { count: 'exact' })
@@ -97,12 +211,10 @@ function History() {
   const validatePrediction = (rating, currentPrice, previousPrice) => {
     const priceChange = ((currentPrice - previousPrice) / previousPrice) * 100
     
-    // For buy signals, prediction is correct if price went up
     if (rating.includes('buy')) {
       return priceChange > 0
     }
     
-    // For sell signals, prediction is correct if price went down
     if (rating.includes('sell')) {
       return priceChange < 0
     }
@@ -111,13 +223,10 @@ function History() {
   }
 
   const processSymbolData = (predictions, marketStats, exchange) => {
-    // Sort predictions by date ascending to process them in chronological order
     predictions.sort((a, b) => new Date(a.prediction_date) - new Date(b.prediction_date))
 
-    // Group predictions by date to handle multiple predictions per day
     const predictionsByDate = {}
     predictions.forEach(pred => {
-      // Convert strong_buy to buy and weak_sell to sell
       if (pred.rating) {
         if (pred.rating.toLowerCase() === 'strong_buy') {
           pred.rating = 'buy'
@@ -135,7 +244,6 @@ function History() {
 
     const dates = Object.keys(predictionsByDate).sort()
     
-    // Process each day's predictions
     for (let i = 0; i < dates.length - 1; i++) {
       const currentDate = dates[i]
       const nextDate = dates[i + 1]
@@ -143,9 +251,7 @@ function History() {
       const currentPredictions = predictionsByDate[currentDate]
       const nextPredictions = predictionsByDate[nextDate]
 
-      // Process each prediction for the current date
       currentPredictions.forEach(current => {
-        // Find matching symbol in next day's predictions
         const next = nextPredictions.find(p => p.symbol === current.symbol)
         if (!next) return
 
@@ -159,9 +265,15 @@ function History() {
         const priceChange = ((next.current_price - current.current_price) / current.current_price) * 100
         
         marketStats[exchange.name][rating].total++
-        marketStats[exchange.name][rating].totalChange += Math.abs(priceChange)
 
-        // Simple validation - just check price movement direction
+        if (priceChange > 0) {
+          marketStats[exchange.name][rating].upwardChange += priceChange
+          marketStats[exchange.name][rating].upCount++
+        } else {
+          marketStats[exchange.name][rating].downwardChange += priceChange
+          marketStats[exchange.name][rating].downCount++
+        }
+
         if (validatePrediction(rating, next.current_price, current.current_price)) {
           marketStats[exchange.name][rating].success++
         }
@@ -169,9 +281,44 @@ function History() {
     }
   }
 
+  const [marketStats, setMarketStats] = useState(() => {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached)
+      const age = Date.now() - timestamp
+      if (age < CACHE_EXPIRY) {
+        setLastUpdated(new Date(timestamp))
+        return data
+      }
+    }
+    return initialStats
+  })
+
+  const saveToCache = (data) => {
+    const timestamp = Date.now()
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data,
+      timestamp
+    }))
+    setLastUpdated(new Date(timestamp))
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const age = Date.now() - timestamp
+        if (age < CACHE_EXPIRY) {
+          console.log('Using cached data from:', new Date(timestamp))
+          setMarketStats(data)
+          setLastUpdated(new Date(timestamp))
+          setLoading(false)
+          return
+        }
+      }
+
       const exchanges = [
         { name: 'nasdaq', table: 'nasdaq_stock_data' },
         { name: 'nyse', table: 'nyse_stock_data' },
@@ -179,25 +326,16 @@ function History() {
         { name: 'fse', table: 'fse_stock_data' }
       ]
 
-      const newMarketStats = { ...marketStats }
+      const newMarketStats = { ...initialStats }
 
       for (const exchange of exchanges) {
         console.log(`Fetching data for ${exchange.name}...`)
         
-        // Initialize exchange stats with only the categories we want
-        newMarketStats[exchange.name] = {
-          buy: { success: 0, total: 0, totalChange: 0 },
-          weak_buy: { success: 0, total: 0, totalChange: 0 },
-          strong_sell: { success: 0, total: 0, totalChange: 0 },
-          sell: { success: 0, total: 0, totalChange: 0 }
-        }
-
         let allData = []
         let offset = 0
         let hasMore = true
         let totalCount = 0
 
-        // Fetch all data in batches
         while (hasMore) {
           console.log(`Fetching batch at offset ${offset} for ${exchange.name}...`)
           const { data: batch, count } = await fetchExchangeData(exchange, offset)
@@ -207,65 +345,57 @@ function History() {
             continue
           }
 
-          allData = [...allData, ...batch]
-          offset += batch.length
+          allData = allData.concat(batch)
           totalCount = count
 
-          if (offset >= count) {
+          offset += batch.length
+          if (allData.length >= totalCount) {
             hasMore = false
           }
 
-          // Log progress
           console.log(`Progress: ${allData.length}/${totalCount} records (${((allData.length/totalCount)*100).toFixed(1)}%)`)
         }
 
-        console.log(`Received total ${allData.length} records for ${exchange.name}`)
+        console.log(`Processing data for ${exchange.name}...`)
 
-        // Group by symbol
         const symbolData = {}
         allData.forEach(row => {
           if (!symbolData[row.symbol]) {
             symbolData[row.symbol] = []
           }
-          symbolData[row.symbol].push({
-            ...row,
-            prediction_date: new Date(row.prediction_date)
-          })
+          symbolData[row.symbol].push(row)
         })
 
         const symbolCount = Object.keys(symbolData).length
         console.log(`Processing ${symbolCount} symbols for ${exchange.name}`)
         
         let processedCount = 0
-        // Process each symbol's historical data
         Object.entries(symbolData).forEach(([symbol, predictions]) => {
           processSymbolData(predictions, newMarketStats, exchange)
           processedCount++
-          
-          // Log progress every 100 symbols
           if (processedCount % 100 === 0) {
             console.log(`Processed ${processedCount}/${symbolCount} symbols (${((processedCount/symbolCount)*100).toFixed(1)}%)`)
           }
         })
 
-        // Calculate averages and log statistics
         Object.keys(newMarketStats[exchange.name]).forEach(rating => {
           const stats = newMarketStats[exchange.name][rating]
-          stats.avgChange = stats.total > 0 
-            ? (stats.totalChange / stats.total).toFixed(2)
+          const avgUpChange = stats.upCount > 0 
+            ? (stats.upwardChange / stats.upCount).toFixed(2)
             : 0
-          delete stats.totalChange
-
-          const successRate = stats.total > 0 ? ((stats.success/stats.total)*100).toFixed(2) : 'N/A'
-          console.log(`${exchange.name} ${rating}: ${stats.success}/${stats.total} (${successRate}%) avg change: ${stats.avgChange}%`)
+          const avgDownChange = stats.downCount > 0 
+            ? (stats.downwardChange / stats.downCount).toFixed(2)
+            : 0
+          console.log(`${exchange.name} ${rating}: ${stats.success}/${stats.total} (${(stats.success/stats.total*100).toFixed(2)}%) avg up: ${avgUpChange}% avg down: ${avgDownChange}%`)
         })
 
         console.log(`Completed processing ${exchange.name}:`, newMarketStats[exchange.name])
       }
 
       setMarketStats(newMarketStats)
+      saveToCache(newMarketStats)
     } catch (error) {
-      console.error('Error in fetchData:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
@@ -277,74 +407,44 @@ function History() {
 
   return (
     <Box minH="100vh" bg={bgColor}>
-      {/* Navbar */}
-      <Box py={2} px={4} bg={navBgColor} borderBottom="1px" borderColor={borderColor} position="sticky" top="0" zIndex="sticky">
-        <Flex maxW="container.xl" mx="auto" align="center">
-          <RouterLink to="/dashboard">
-            <HStack spacing={2}>
-              <Text
-                fontSize="2xl"
-                fontWeight="bold"
-                bgGradient="linear(to-r, blue.400, teal.400)"
-                bgClip="text"
-                _hover={{ 
-                  bgGradient: "linear(to-r, blue.500, teal.500)",
-                  transform: "scale(1.05)",
-                  transition: "all 0.2s ease-in-out"
-                }}
-              >
-                Swift Signal
-              </Text>
-            </HStack>
+      <Box bg={navBgColor} py={4} px={8} shadow="sm" position="sticky" top={0} zIndex={10}>
+        <Flex justify="space-between" align="center">
+          <RouterLink to="/">
+            <Heading size="md" color={textColor}>Stock Analysis</Heading>
           </RouterLink>
-          
-          <Spacer />
-
-          <HStack spacing={4}>
-            <IconButton
-              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-              onClick={toggleColorMode}
-              variant="ghost"
-              aria-label="Toggle color mode"
-              _hover={{ bg: hoverBgColor }}
-            />
-          </HStack>
+          <IconButton
+            icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+            onClick={toggleColorMode}
+            variant="ghost"
+            aria-label="Toggle color mode"
+          />
         </Flex>
       </Box>
 
-      {/* Main Content */}
-      <Container maxW="container.xl" py={8}>
+      <Container maxW="8xl" py={8}>
         <VStack spacing={8} align="stretch">
-          {/* Header Section */}
-          <Box textAlign="center" mb={4}>
-            <Heading 
-              size="xl" 
-              mb={4}
-              bgGradient="linear(to-r, blue.400, teal.400)"
-              bgClip="text"
-            >
-              Prediction Performance
-            </Heading>
-            <Text color={mutedTextColor} fontSize="lg">
-              Historical analysis of trading signals across major exchanges
-            </Text>
-          </Box>
+          <Flex justify="space-between" align="center">
+            <Heading size="lg" color={textColor}>Performance History</Heading>
+            <HStack spacing={4}>
+              {lastUpdated && (
+                <Text fontSize="sm" color={mutedTextColor}>
+                  Last updated: {lastUpdated.toLocaleString()}
+                </Text>
+              )}
+              <Button
+                size="sm"
+                leftIcon={<ViewIcon />}
+                onClick={fetchData}
+                isLoading={loading}
+                colorScheme="blue"
+              >
+                Refresh Data
+              </Button>
+            </HStack>
+          </Flex>
 
-          {/* Stats Grid */}
-          <SimpleGrid 
-            columns={{ base: 1, md: 2, lg: 4 }} 
-            spacing={6}
-            sx={{
-              '& > div': {
-                transform: 'scale(1)',
-                transition: 'all 0.2s ease-in-out'
-              },
-              '& > div:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: 'xl'
-              }
-            }}
-          >
+          {/* Exchange Cards */}
+          <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
             {Object.entries(marketStats).map(([exchange, stats]) => (
               <Card
                 key={exchange}
@@ -352,57 +452,121 @@ function History() {
                 variant="elevated"
                 bg={cardBgColor}
                 borderRadius="xl"
+                shadow="xl"
               >
-                <Box 
-                  p={1} 
-                  bgGradient="linear(to-r, blue.400, teal.400)"
-                />
+                <Box p={1} bgGradient="linear(to-r, blue.400, teal.400)" />
                 <CardBody p={6}>
                   <Heading 
-                    size="md" 
-                    mb={4} 
+                    size="lg" 
+                    mb={6} 
                     textTransform="uppercase"
                     letterSpacing="wide"
+                    color={textColor}
+                    textAlign="center"
+                    pb={4}
+                    borderBottom="2px solid"
+                    borderColor={borderColor}
                   >
-                    {exchange}
+                    {exchange.toUpperCase()}
                   </Heading>
                   
-                  <VStack spacing={5} align="stretch">
+                  <VStack spacing={6} align="stretch">
                     {Object.entries(stats).map(([rating, data]) => {
                       const successRate = data.total > 0 
                         ? (data.success / data.total * 100).toFixed(1)
                         : 0
+
+                      const avgUpChange = data.upCount > 0 
+                        ? (data.upwardChange / data.upCount).toFixed(2)
+                        : 0
+
+                      const avgDownChange = data.downCount > 0 
+                        ? (data.downwardChange / data.downCount).toFixed(2)
+                        : 0
                       
                       return (
-                        <Box key={rating}>
-                          <Flex justify="space-between" align="center" mb={2}>
-                            <Text 
-                              fontWeight="bold" 
-                              color={textColor}
-                              fontSize="md"
-                            >
+                        <Box 
+                          key={rating} 
+                          p={4} 
+                          borderRadius="lg" 
+                          bg={useColorModeValue('gray.50', 'whiteAlpha.50')}
+                        >
+                          {/* Rating Header */}
+                          <Flex justify="space-between" align="center" mb={4}>
+                            <Heading size="md" color={textColor}>
                               {ratingLabels[rating]}
-                            </Text>
-                            <Text 
-                              color={successRate >= 50 ? positiveColor : negativeColor}
-                              fontWeight="bold"
-                            >
-                              {successRate}%
-                            </Text>
+                            </Heading>
+                            <Box textAlign="right">
+                              <Text 
+                                fontSize="2xl"
+                                fontWeight="bold"
+                                color={successRate >= 50 ? positiveColor : negativeColor}
+                              >
+                                {successRate}%
+                              </Text>
+                              <Text fontSize="sm" color={mutedTextColor}>
+                                Success Rate
+                              </Text>
+                            </Box>
                           </Flex>
+
+                          {/* Progress Bar */}
                           <Progress 
                             value={successRate}
                             size="sm"
                             colorScheme={successRate >= 50 ? "green" : "red"}
-                            mb={2}
+                            mb={4}
                             borderRadius="full"
                             hasStripe
                             isAnimated
                           />
-                          <Flex justify="space-between" fontSize="sm" color={mutedTextColor}>
-                            <Text>Success: {data.success}/{data.total}</Text>
-                            <Text>Avg Δ: {data.avgChange}%</Text>
-                          </Flex>
+
+                          {/* Stats Grid */}
+                          <SimpleGrid columns={2} spacing={4} mt={4}>
+                            {/* Upward Movement Stats */}
+                            <Box 
+                              p={3} 
+                              borderRadius="md" 
+                              bg={useColorModeValue('white', 'whiteAlpha.100')}
+                              border="1px solid"
+                              borderColor={borderColor}
+                            >
+                              <Text fontSize="sm" color={mutedTextColor} mb={1}>Upward Movement</Text>
+                              <Text fontSize="xl" fontWeight="bold" color={positiveColor}>
+                                +{avgUpChange}%
+                              </Text>
+                              <Text fontSize="sm" color={mutedTextColor}>
+                                {data.upCount} stocks
+                              </Text>
+                            </Box>
+
+                            {/* Downward Movement Stats */}
+                            <Box 
+                              p={3} 
+                              borderRadius="md" 
+                              bg={useColorModeValue('white', 'whiteAlpha.100')}
+                              border="1px solid"
+                              borderColor={borderColor}
+                            >
+                              <Text fontSize="sm" color={mutedTextColor} mb={1}>Downward Movement</Text>
+                              <Text fontSize="xl" fontWeight="bold" color={negativeColor}>
+                                {avgDownChange}%
+                              </Text>
+                              <Text fontSize="sm" color={mutedTextColor}>
+                                {data.downCount} stocks
+                              </Text>
+                            </Box>
+                          </SimpleGrid>
+
+                          {/* Total Predictions */}
+                          <Text 
+                            mt={4} 
+                            fontSize="sm" 
+                            color={mutedTextColor}
+                            textAlign="center"
+                          >
+                            Total Predictions: {data.total} | Successful: {data.success}
+                          </Text>
                         </Box>
                       )
                     })}
