@@ -357,14 +357,23 @@ function App() {
     fetchData(true)
   }
 
+  // Initial data fetch and filter changes
   useEffect(() => {
-    fetchData()
+    fetchData(true)
   }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
 
   useEffect(() => {
     setPage(0);
     setHasMore(true);
   }, [searchTerm, symbolFilter, companyFilter, selectedRating, selectedSector, selectedIndustry, selectedExchange]);
+
+  // Separate effect for sort changes to avoid double fetching
+  useEffect(() => {
+    // Only fetch if sortConfig has a key (meaning sorting is active)
+    if (sortConfig.key) {
+      fetchData(true)
+    }
+  }, [sortConfig.key, sortConfig.direction])
 
   const requestSort = (key) => {
     // Map UI column names to database column names
@@ -385,7 +394,6 @@ function App() {
       direction = 'desc';
     }
     setSortConfig({ key: columnMap[key] || key, direction });
-    fetchData(true);
   };
 
   const SortIndicator = ({ columnKey }) => {
