@@ -8,6 +8,7 @@ import Login from './Login'
 import theme from './theme'
 import './index.css'
 import StockDetails from './StockDetails'
+import { AppStateProvider } from './context/AppStateContext'
 
 // Auth guard component
 const PrivateRoute = ({ children }) => {
@@ -51,7 +52,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ChakraProvider theme={theme}>
       <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-      <RouterProvider router={router} />
+      <AppStateProvider>
+        <RouterProvider router={router} />
+      </AppStateProvider>
     </ChakraProvider>
   </React.StrictMode>
 )

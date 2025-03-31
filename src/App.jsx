@@ -55,30 +55,28 @@ import {
   TriangleDownIcon
 } from '@chakra-ui/icons'
 import { useMemo } from 'react'
+import usePersistedState from './hooks/usePersistedState'
 
 function App() {
   const { colorMode, toggleColorMode } = useColorMode()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(0)
+  const [searchTerm, setSearchTerm] = usePersistedState('app_searchTerm', '')
+  const [page, setPage] = usePersistedState('app_page', 0)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const tableContainerRef = useRef(null)
-  const [symbolFilter, setSymbolFilter] = useState('')
-  const [companyFilter, setCompanyFilter] = useState('')
-  const [selectedRating, setSelectedRating] = useState('all')
-  const [selectedSector, setSelectedSector] = useState('all')
-  const [selectedIndustry, setSelectedIndustry] = useState('all')
-  const [selectedExchange, setSelectedExchange] = useState(() => {
-    // Initialize from localStorage or default to nasdaq
-    return localStorage.getItem('selectedExchange') || 'nasdaq_stock_data'
-  })
+  const [symbolFilter, setSymbolFilter] = usePersistedState('app_symbolFilter', '')
+  const [companyFilter, setCompanyFilter] = usePersistedState('app_companyFilter', '')
+  const [selectedRating, setSelectedRating] = usePersistedState('app_selectedRating', 'all')
+  const [selectedSector, setSelectedSector] = usePersistedState('app_selectedSector', 'all')
+  const [selectedIndustry, setSelectedIndustry] = usePersistedState('app_selectedIndustry', 'all')
+  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_stock_data')
   const [ratingStats, setRatingStats] = useState({})
   const [sectors, setSectors] = useState([])
   const [industries, setIndustries] = useState([])
   const [ratings, setRatings] = useState([])
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [sortConfig, setSortConfig] = usePersistedState('app_sortConfig', { key: null, direction: 'asc' })
 
   // Color theme values
   const bgColor = useColorModeValue('gray.50', '#000000')
@@ -363,6 +361,11 @@ function App() {
     fetchData()
   }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
 
+  useEffect(() => {
+    setPage(0);
+    setHasMore(true);
+  }, [searchTerm, symbolFilter, companyFilter, selectedRating, selectedSector, selectedIndustry, selectedExchange]);
+
   const requestSort = (key) => {
     // Map UI column names to database column names
     const columnMap = {
@@ -393,6 +396,32 @@ function App() {
       </Text>
     );
   };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      // Restore scroll position
+      if (tableContainerRef.current) {
+        const savedScrollTop = sessionStorage.getItem('app_scrollPosition');
+        if (savedScrollTop) {
+          tableContainerRef.current.scrollTop = parseInt(savedScrollTop, 10);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (tableContainerRef.current) {
+        sessionStorage.setItem('app_scrollPosition', tableContainerRef.current.scrollTop.toString());
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   return (
     <Box minH="100vh" bg={bgColor}>
