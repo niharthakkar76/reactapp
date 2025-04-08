@@ -71,7 +71,7 @@ function App() {
   const [selectedRating, setSelectedRating] = usePersistedState('app_selectedRating', 'all')
   const [selectedSector, setSelectedSector] = usePersistedState('app_selectedSector', 'all')
   const [selectedIndustry, setSelectedIndustry] = usePersistedState('app_selectedIndustry', 'all')
-  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_stock_data')
+  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_predictions')
   const [ratingStats, setRatingStats] = useState({})
   const [sectors, setSectors] = useState([])
   const [industries, setIndustries] = useState([])
@@ -147,8 +147,8 @@ function App() {
     }
     // Try exact match first, then first word match, then sector color
     return industryColors[industry] || 
-           industryColors[industry.split(' ')[0]] || 
-           getSectorColor(industry.split(' ')[0]) || 
+           industryColors[industry?.split(' ')[0]] || 
+           getSectorColor(industry?.split(' ')[0]) || 
            'gray'
   }
 
@@ -333,6 +333,7 @@ function App() {
       if (error) throw error
 
       const newData = resetData ? pageData : [...data, ...pageData]
+      console.log(newData);
       setData(newData)
       setHasMore(newData.length < count)
       setPage(currentPage + 1)
@@ -465,10 +466,10 @@ function App() {
                 size="xs"
                 w="80px"
               >
-                <option value="nasdaq_stock_data">NASDAQ</option>
-                <option value="nyse_stock_data">NYSE</option>
-                <option value="lse_stock_data">LSE</option>
-                <option value="fse_stock_data">FSE</option>
+                <option value="nasdaq_predictions">NASDAQ</option>
+                <option value="nyse_predictions">NYSE</option>
+                <option value="lse_predictions">LSE</option>
+                <option value="fse_predictions">FSE</option>
               </Select>
               <Button
                 as={Link}
@@ -713,6 +714,18 @@ function App() {
                       <Th 
                         py={2} 
                         px={2} 
+                        w="120px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('prediction_date')}
+                        _hover={{ color: textColor }}
+                      >
+                        Prediction Date
+                        <SortIndicator columnKey='prediction_date' />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
                         isNumeric 
                         w="120px" 
                         color={mutedTextColor}
@@ -720,8 +733,21 @@ function App() {
                         onClick={() => requestSort('current_price')}
                         _hover={{ color: textColor }}
                       >
-                        Previous Close Price
+                        Previous Close
                         <SortIndicator columnKey="current_price" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="110px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('predicted_price')}
+                        _hover={{ color: textColor }}
+                      >
+                        Volume
+                        <SortIndicator columnKey="predicted_price" />
                       </Th>
                       <Th 
                         py={2} 
@@ -729,88 +755,22 @@ function App() {
                         w="90px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('rating')}
+                        onClick={() => requestSort('market_cap')}
                         _hover={{ color: textColor }}
                       >
-                        Rating
-                        <SortIndicator columnKey="rating" />
-                      </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
-                        color={mutedTextColor}
-                        cursor="pointer"
-                        onClick={() => requestSort('buy_score')}
-                        _hover={{ color: textColor }}
-                      >
-                        Buy Score
-                        <SortIndicator columnKey="probability" />
-                      </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
-                        color={mutedTextColor}
-                        cursor="pointer"
-                        onClick={() => requestSort('rsi')}
-                        _hover={{ color: textColor }}
-                      >
-                        RSI
-                        <SortIndicator columnKey="rsi" />
-                      </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
-                        color={mutedTextColor}
-                        cursor="pointer"
-                        onClick={() => requestSort('macd')}
-                        _hover={{ color: textColor }}
-                      >
-                        MACD
-                        <SortIndicator columnKey="macd_signal" />
-                      </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
-                        color={mutedTextColor}
-                        cursor="pointer"
-                        onClick={() => requestSort('vol')}
-                        _hover={{ color: textColor }}
-                      >
-                        Vol
-                        <SortIndicator columnKey="volume" />
-                      </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
-                        color={mutedTextColor}
-                        cursor="pointer"
-                        onClick={() => requestSort('mcap')}
-                        _hover={{ color: textColor }}
-                      >
-                        MCap
+                        Market Cap
                         <SortIndicator columnKey="market_cap" />
                       </Th>
                       <Th 
                         py={2} 
                         px={2} 
-                        isNumeric 
-                        w="80px" 
+                        w="90px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('pe')}
+                        onClick={() => requestSort('pe_ratio')}
                         _hover={{ color: textColor }}
                       >
-                        P/E
+                        PE ratio
                         <SortIndicator columnKey="pe_ratio" />
                       </Th>
                       <Th 
@@ -820,11 +780,11 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('roe')}
+                        onClick={() => requestSort('day_high')}
                         _hover={{ color: textColor }}
                       >
-                        ROE%
-                        <SortIndicator columnKey="return_on_equity" />
+                        Day High
+                        <SortIndicator columnKey="day_high" />
                       </Th>
                       <Th 
                         py={2} 
@@ -833,11 +793,11 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('revg')}
+                        onClick={() => requestSort('day_low')}
                         _hover={{ color: textColor }}
                       >
-                        RevG%
-                        <SortIndicator columnKey="revenue_growth" />
+                        Day Low
+                        <SortIndicator columnKey="day_low" />
                       </Th>
                       <Th 
                         py={2} 
@@ -846,11 +806,24 @@ function App() {
                         w="80px" 
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('epsg')}
+                        onClick={() => requestSort('news_sentiment_rating')}
                         _hover={{ color: textColor }}
                       >
-                        EPS G%
-                        <SortIndicator columnKey="earnings_growth" />
+                        News Sentiment Rating
+                        <SortIndicator columnKey="news_sentiment_rating" />
+                      </Th>
+                      <Th 
+                        py={2} 
+                        px={2} 
+                        isNumeric 
+                        w="80px" 
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort('stock_rating')}
+                        _hover={{ color: textColor }}
+                      >
+                        Stock Rating
+                        <SortIndicator columnKey="stock_rating" />
                       </Th>
                     </Tr>
                   </Thead>
@@ -908,47 +881,31 @@ function App() {
                           </Box>
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock?.daily_returns)}>
-                          {formatPrice(stock?.current_price)}
+                          {stock?.prediction_date}
+                        </Td>
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock?.daily_returns)}>
+                          {stock?.previous_close}
                         </Td>
                         <Td py={0.5} px={2}>
-                          <Badge 
-                            fontSize="10px" 
-                            colorScheme={stock?.rating ? getRatingColor(stock.rating) : 'gray'}
-                            px={2}
-                            py={0.5}
-                            borderRadius="md"
-                          >
-                            {stock?.rating || '-'}
-                          </Badge>
+                            {formatVolume(stock?.volume) || '-'}
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.probability, 50)}>
-                          {formatValue(stock?.probability, 1, true)}
+                          {formatValue(stock?.market_cap, 1, true)}
                         </Td>
                         <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi, 50)}>
-                          {formatValue(stock?.rsi)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd_signal)}>
-                          {formatValue(stock?.macd_signal)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {formatVolume(stock?.volume)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {stock?.market_cap >= 1e9 
-                            ? `${(stock?.market_cap / 1e9).toFixed(1)}B` 
-                            : `${(stock?.market_cap / 1e6).toFixed(0)}M`}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.pe_ratio, 15)}>
                           {formatValue(stock?.pe_ratio)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.return_on_equity)}>
-                          {formatValue(stock?.return_on_equity * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd_signal)}>
+                          {formatValue(stock?.day_high)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.revenue_growth)}>
-                          {formatValue(stock?.revenue_growth * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs">
+                          {formatVolume(stock?.day_low)}
                         </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.earnings_growth)}>
-                          {formatValue(stock?.earnings_growth * 100, 1, true)}
+                        <Td py={0.5} px={2} isNumeric fontSize="xs">
+                          {stock?.news_sentiment_rating}
+                        </Td>
+                        <Td py={0.5} px={2} isNumeric fontSize="xs">
+                          {stock?.stock_rating}
                         </Td>
                       </Tr>
                     ))}
