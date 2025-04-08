@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient.js';
 async function checkTables() {
     // Check NASDAQ table
     const { data: nasdaqData, error: nasdaqError } = await supabase
-        .from('nasdaq_stock_data')
+        .from('nasdaq_predictions')
         .select('*')
         .limit(1);
     
@@ -16,7 +16,7 @@ async function checkTables() {
 
     // Check LSE table
     const { data: lseData, error: lseError } = await supabase
-        .from('lse_stock_data')
+        .from('lse_predictions')
         .select('*')
         .limit(1);
     
@@ -29,7 +29,7 @@ async function checkTables() {
 
     // Check FSE table
     const { data: fseData, error: fseError } = await supabase
-        .from('fse_stock_data')
+        .from('fse_predictions')
         .select('*')
         .limit(1);
     
@@ -42,7 +42,7 @@ async function checkTables() {
 
     // Check NYSE table
     const { data: nyseData, error: nyseError } = await supabase
-        .from('nyse_stock_data')
+        .from('nyse_predictions')
         .select('*')
         .limit(1);
     

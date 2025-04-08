@@ -33,10 +33,10 @@ function StockDetails() {
 
   // Exchange display name mapping
   const exchangeDisplayName = {
-    'nasdaq_stock_data': 'NASDAQ',
-    'nyse_stock_data': 'NYSE',
-    'lse_stock_data': 'LSE',
-    'fse_stock_data': 'FSE'
+    'nasdaq_predictions': 'NASDAQ',
+    'nyse_predictions': 'NYSE',
+    'lse_predictions': 'LSE',
+    'fse_predictions': 'FSE'
   };
 
   return (

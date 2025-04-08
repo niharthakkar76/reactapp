@@ -7,10 +7,10 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function analyzeRatings() {
     const exchanges = [
-        'nasdaq_stock_data',
-        'nyse_stock_data',
-        'lse_stock_data',
-        'fse_stock_data'
+        'nasdaq_predictions',
+        'nyse_predictions',
+        'lse_predictions',
+        'fse_predictions'
     ]
 
     for (const exchange of exchanges) {

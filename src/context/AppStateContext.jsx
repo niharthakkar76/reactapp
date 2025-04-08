@@ -5,7 +5,7 @@ const AppStateContext = createContext();
 
 export const AppStateProvider = ({ children }) => {
   // Global state that needs to be shared between components
-  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_stock_data');
+  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_predictions');
   const [filterState, setFilterState] = usePersistedState('app_filterState', {
     searchTerm: '',
     symbolFilter: '',

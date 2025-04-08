@@ -389,10 +389,10 @@ function History() {
       }
 
       const exchanges = [
-        { name: 'nasdaq', table: 'nasdaq_stock_data' },
-        { name: 'nyse', table: 'nyse_stock_data' },
-        { name: 'lse', table: 'lse_stock_data' },
-        { name: 'fse', table: 'fse_stock_data' }
+        { name: 'nasdaq', table: 'nasdaq_predictions' },
+        { name: 'nyse', table: 'nyse_predictions' },
+        { name: 'lse', table: 'lse_predictions' },
+        { name: 'fse', table: 'fse_predictions' }
       ]
 
       const newMarketStats = { ...initialStats }
