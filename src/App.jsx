@@ -803,11 +803,23 @@ function App() {
                         w="120px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort("prediction_date")}
+                        onClick={() => requestSort("predicted_return_percentage")}
                         _hover={{ color: textColor }}
                       >
-                        Prediction Date
-                        <SortIndicator columnKey="prediction_date" />
+                        Predicted Return Percentage
+                        <SortIndicator columnKey="predicted_return_percentage" />
+                      </Th>
+                      <Th
+                        py={2}
+                        px={2}
+                        w="120px"
+                        color={mutedTextColor}
+                        cursor="pointer"
+                        onClick={() => requestSort("news_sentiment_probability")}
+                        _hover={{ color: textColor }}
+                      >
+                        News Sentiment Probability
+                        <SortIndicator columnKey="news_sentiment_probability" />
                       </Th>
                       <Th
                         py={2}
@@ -997,9 +1009,19 @@ function App() {
                               isNumeric
                               fontSize="xs"
                               fontWeight="medium"
-                              color={getPriceColor(stock?.daily_returns)}
+                              color={getPriceColor(stock?.predicted_return_percentage)}
                             >
-                              {formatDate(stock?.prediction_date)}
+                              {formatValue(stock?.predicted_return_percentage)}
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              fontWeight="medium"
+                              color={getPriceColor(stock?.news_up_probability)}
+                            >
+                              {stock?.news_up_probability || "-"}
                             </Td>
                             <Td
                               py={0.5}
