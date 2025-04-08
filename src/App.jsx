@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { supabase } from './supabaseClient'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabaseClient";
+import { Link } from "react-router-dom";
 import {
   Box,
   Table,
@@ -43,186 +43,219 @@ import {
   FormControl,
   FormLabel,
   GridItem,
-} from '@chakra-ui/react'
-import { 
-  SunIcon, 
-  MoonIcon, 
-  SettingsIcon, 
-  SearchIcon, 
-  DownloadIcon, 
-  RepeatIcon, 
+} from "@chakra-ui/react";
+import {
+  SunIcon,
+  MoonIcon,
+  SettingsIcon,
+  SearchIcon,
+  DownloadIcon,
+  RepeatIcon,
   ViewIcon,
-  TriangleDownIcon
-} from '@chakra-ui/icons'
-import { useMemo } from 'react'
-import usePersistedState from './hooks/usePersistedState'
+  TriangleDownIcon,
+} from "@chakra-ui/icons";
+import { useMemo } from "react";
+import usePersistedState from "./hooks/usePersistedState";
 
 function App() {
-  const { colorMode, toggleColorMode } = useColorMode()
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState([])
-  const [searchTerm, setSearchTerm] = usePersistedState('app_searchTerm', '')
-  const [page, setPage] = usePersistedState('app_page', 0)
-  const [hasMore, setHasMore] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const tableContainerRef = useRef(null)
-  const [symbolFilter, setSymbolFilter] = usePersistedState('app_symbolFilter', '')
-  const [companyFilter, setCompanyFilter] = usePersistedState('app_companyFilter', '')
-  const [selectedRating, setSelectedRating] = usePersistedState('app_selectedRating', 'all')
-  const [selectedSector, setSelectedSector] = usePersistedState('app_selectedSector', 'all')
-  const [selectedIndustry, setSelectedIndustry] = usePersistedState('app_selectedIndustry', 'all')
-  const [selectedExchange, setSelectedExchange] = usePersistedState('app_selectedExchange', 'nasdaq_predictions')
-  const [ratingStats, setRatingStats] = useState({})
-  const [sectors, setSectors] = useState([])
-  const [industries, setIndustries] = useState([])
-  const [ratings, setRatings] = useState([])
-  const [sortConfig, setSortConfig] = usePersistedState('app_sortConfig', { key: null, direction: 'asc' })
+  const { colorMode, toggleColorMode } = useColorMode();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState([]);
+  const [searchTerm, setSearchTerm] = usePersistedState("app_searchTerm", "");
+  const [page, setPage] = usePersistedState("app_page", 0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const tableContainerRef = useRef(null);
+  const [symbolFilter, setSymbolFilter] = usePersistedState(
+    "app_symbolFilter",
+    ""
+  );
+  const [companyFilter, setCompanyFilter] = usePersistedState(
+    "app_companyFilter",
+    ""
+  );
+  const [selectedRating, setSelectedRating] = usePersistedState(
+    "app_selectedRating",
+    "all"
+  );
+  const [selectedSector, setSelectedSector] = usePersistedState(
+    "app_selectedSector",
+    "all"
+  );
+  const [selectedIndustry, setSelectedIndustry] = usePersistedState(
+    "app_selectedIndustry",
+    "all"
+  );
+  const [selectedExchange, setSelectedExchange] = usePersistedState(
+    "app_selectedExchange",
+    "nasdaq_predictions"
+  );
+  const [ratingStats, setRatingStats] = useState({});
+  const [sectors, setSectors] = useState([]);
+  const [industries, setIndustries] = useState([]);
+  const [ratings, setRatings] = useState([]);
+  const [sortConfig, setSortConfig] = usePersistedState("app_sortConfig", {
+    key: null,
+    direction: "asc",
+  });
 
   // Color theme values
-  const bgColor = useColorModeValue('gray.50', '#000000')
-  const cardBgColor = useColorModeValue('white', '#121212')
-  const textColor = useColorModeValue('gray.800', '#ffffff')
-  const mutedTextColor = useColorModeValue('gray.600', '#888888')
-  const borderColor = useColorModeValue('gray.200', '#202020')
-  const hoverBgColor = useColorModeValue('gray.50', '#1c1c1c')
-  const positiveColor = useColorModeValue('green.500', '#00873c')
-  const negativeColor = useColorModeValue('red.500', '#ff4d4d')
+  const bgColor = useColorModeValue("gray.50", "#000000");
+  const cardBgColor = useColorModeValue("white", "#121212");
+  const textColor = useColorModeValue("gray.800", "#ffffff");
+  const mutedTextColor = useColorModeValue("gray.600", "#888888");
+  const borderColor = useColorModeValue("gray.200", "#202020");
+  const hoverBgColor = useColorModeValue("gray.50", "#1c1c1c");
+  const positiveColor = useColorModeValue("green.500", "#00873c");
+  const negativeColor = useColorModeValue("red.500", "#ff4d4d");
 
   // Rating colors with improved color scheme
   const getRatingColor = (rating) => {
     const ratingColors = {
-      'Strong Buy': 'green',
-      'Buy': 'teal',
-      'Weak Buy': 'blue',
-      'Weak Sell': 'orange',
-      'Sell': 'red',
-      'Strong Sell': 'red'
-    }
-    return ratingColors[rating] || 'gray'
-  }
+      "Strong Buy": "green",
+      Buy: "teal",
+      "Weak Buy": "blue",
+      "Weak Sell": "orange",
+      Sell: "red",
+      "Strong Sell": "red",
+    };
+    return ratingColors[rating] || "gray";
+  };
 
   // Get color scheme for sectors
   const getSectorColor = (sector) => {
     const sectorColors = {
-      'Technology': 'blue',
-      'Healthcare': 'green',
-      'Financial': 'purple',
-      'Consumer': 'orange',
-      'Industrial': 'gray',
-      'Energy': 'yellow',
-      'Materials': 'red',
-      'Communication': 'pink',
-      'Real Estate': 'cyan',
-      'Utilities': 'teal'
-    }
-    return sectorColors[sector] || 'gray'
-  }
+      Technology: "blue",
+      Healthcare: "green",
+      Financial: "purple",
+      Consumer: "orange",
+      Industrial: "gray",
+      Energy: "yellow",
+      Materials: "red",
+      Communication: "pink",
+      "Real Estate": "cyan",
+      Utilities: "teal",
+    };
+    return sectorColors[sector] || "gray";
+  };
 
   // Industry colors with focused palette
   const getIndustryColor = (industry) => {
     const industryColors = {
       // Tech & Comm
-      'Software': 'blue',
-      'Hardware': 'cyan',
-      'Semiconductors': 'blue',
-      'Communication': 'pink',
+      Software: "blue",
+      Hardware: "cyan",
+      Semiconductors: "blue",
+      Communication: "pink",
       // Healthcare
-      'Biotech': 'teal',
-      'Medical': 'green',
-      'Pharma': 'teal',
+      Biotech: "teal",
+      Medical: "green",
+      Pharma: "teal",
       // Financial
-      'Banks': 'purple',
-      'Insurance': 'purple',
-      'Markets': 'purple',
+      Banks: "purple",
+      Insurance: "purple",
+      Markets: "purple",
       // Consumer
-      'Retail': 'orange',
-      'Media': 'pink',
-      'Auto': 'orange',
-      'Travel': 'orange',
+      Retail: "orange",
+      Media: "pink",
+      Auto: "orange",
+      Travel: "orange",
       // Industrial
-      'Transport': 'gray',
-      'Mining': 'yellow',
-      'Oil': 'red',
-      'Equipment': 'gray'
-    }
+      Transport: "gray",
+      Mining: "yellow",
+      Oil: "red",
+      Equipment: "gray",
+    };
     // Try exact match first, then first word match, then sector color
-    return industryColors[industry] || 
-           industryColors[industry?.split(' ')[0]] || 
-           getSectorColor(industry?.split(' ')[0]) || 
-           'gray'
-  }
+    return (
+      industryColors[industry] ||
+      industryColors[industry?.split(" ")[0]] ||
+      getSectorColor(industry?.split(" ")[0]) ||
+      "gray"
+    );
+  };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '-'
-    return dateString.split('T')[0]
-  }
+    if (!dateString) return "-";
+    return dateString.split("T")[0];
+  };
 
   const formatPrice = (price) => {
-    if (price === null || price === undefined || isNaN(price)) return '-'
-    return `$${Number(price).toFixed(2)}`
-  }
+    if (price === null || price === undefined || isNaN(price)) return "-";
+    return `$${Number(price).toFixed(2)}`;
+  };
 
   const formatChange = (dailyReturns) => {
-    if (dailyReturns === null || dailyReturns === undefined || isNaN(dailyReturns)) return '-'
-    return `${(Number(dailyReturns) * 100).toFixed(1)}%`
-  }
+    if (
+      dailyReturns === null ||
+      dailyReturns === undefined ||
+      isNaN(dailyReturns)
+    )
+      return "-";
+    return `${(Number(dailyReturns) * 100).toFixed(1)}%`;
+  };
 
   const getValueColor = (value, threshold = 0) => {
-    if (!value) return textColor
-    return value >= threshold ? positiveColor : negativeColor
-  }
+    if (!value) return textColor;
+    return value >= threshold ? positiveColor : negativeColor;
+  };
 
   const formatVolume = (volume) => {
-    if (!volume) return '-'
-    if (volume >= 1e6) return `${(volume / 1e6).toFixed(1)}M`
-    if (volume >= 1e3) return `${(volume / 1e3).toFixed(1)}K`
-    return volume.toString()
-  }
+    if (!volume) return "-";
+    if (volume >= 1e6) return `${(volume / 1e6).toFixed(1)}M`;
+    if (volume >= 1e3) return `${(volume / 1e3).toFixed(1)}K`;
+    return volume.toString();
+  };
 
   const formatValue = (value, decimals = 1, showPercent = false) => {
-    if (value === null || value === undefined || isNaN(value)) return '-'
-    return `${Number(value).toFixed(decimals)}${showPercent ? '%' : ''}`
-  }
+    if (value === null || value === undefined || isNaN(value)) return "-";
+    return `${Number(value).toFixed(decimals)}${showPercent ? "%" : ""}`;
+  };
 
   const getPriceColor = (dailyReturns) => {
-    if (dailyReturns === null || dailyReturns === undefined || isNaN(dailyReturns)) return textColor
-    return Number(dailyReturns) >= 0 ? positiveColor : negativeColor
-  }
+    if (
+      dailyReturns === null ||
+      dailyReturns === undefined ||
+      isNaN(dailyReturns)
+    )
+      return textColor;
+    return Number(dailyReturns) >= 0 ? positiveColor : negativeColor;
+  };
 
   const fetchAllData = async () => {
-    const today = new Date()
-    let allData = []
-    let hasMore = true
-    let page = 0
-    const pageSize = 1000
+    const today = new Date();
+    let allData = [];
+    let hasMore = true;
+    let page = 0;
+    const pageSize = 1000;
 
     while (hasMore) {
       const { data, error, count } = await supabase
         .from(selectedExchange)
-        .select('*', { count: 'exact' })
-        .gte('prediction_date', today.toISOString().split('T')[0])
-        .range(page * pageSize, (page + 1) * pageSize - 1)
+        .select("*", { count: "exact" })
+        .gte("prediction_date", today.toISOString().split("T")[0])
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (error) {
-        console.error('Error fetching all data:', error)
-        break
+        console.error("Error fetching all data:", error);
+        break;
       }
 
       if (data && data.length > 0) {
-        allData = [...allData, ...data]
-        hasMore = allData.length < count
-        page++
+        allData = [...allData, ...data];
+        hasMore = allData.length < count;
+        page++;
       } else {
-        hasMore = false
+        hasMore = false;
       }
     }
 
-    return allData
-  }
+    return allData;
+  };
 
   const calculateRatingStats = (stockData) => {
     const stats = stockData.reduce((acc, stock) => {
-      const rating = stock.rating || 'Unrated'
+      const rating = stock.rating || "Unrated";
       if (!acc[rating]) {
         acc[rating] = {
           count: 0,
@@ -230,169 +263,206 @@ function App() {
           avgReturn: 0,
           minReturn: Infinity,
           maxReturn: -Infinity,
-          examples: []
-        }
+          examples: [],
+        };
       }
-      
-      const stat = acc[rating]
-      stat.count++
-      
-      if (stock.expected_return !== null && stock.expected_return !== undefined) {
-        stat.totalReturn += stock.expected_return
-        stat.minReturn = Math.min(stat.minReturn, stock.expected_return)
-        stat.maxReturn = Math.max(stat.maxReturn, stock.expected_return)
+
+      const stat = acc[rating];
+      stat.count++;
+
+      if (
+        stock.expected_return !== null &&
+        stock.expected_return !== undefined
+      ) {
+        stat.totalReturn += stock.expected_return;
+        stat.minReturn = Math.min(stat.minReturn, stock.expected_return);
+        stat.maxReturn = Math.max(stat.maxReturn, stock.expected_return);
       }
-      
+
       if (stat.examples.length < 3) {
         stat.examples.push({
           symbol: stock.symbol,
           price: stock.current_price,
           expected_return: stock.expected_return,
-          probability: stock.probability
-        })
+          probability: stock.probability,
+        });
       }
-      
-      return acc
-    }, {})
+
+      return acc;
+    }, {});
 
     // Calculate averages and format stats
-    Object.values(stats).forEach(stat => {
+    Object.values(stats).forEach((stat) => {
       if (stat.count > 0) {
-        stat.avgReturn = stat.totalReturn / stat.count
+        stat.avgReturn = stat.totalReturn / stat.count;
       }
-      if (stat.minReturn === Infinity) stat.minReturn = 0
-      if (stat.maxReturn === -Infinity) stat.maxReturn = 0
-    })
+      if (stat.minReturn === Infinity) stat.minReturn = 0;
+      if (stat.maxReturn === -Infinity) stat.maxReturn = 0;
+    });
 
-    setRatingStats(stats)
-  }
+    setRatingStats(stats);
+  };
 
   const fetchData = async (resetData = true) => {
     if (resetData) {
-      setLoading(true)
-      setPage(0)
-      setHasMore(true)
+      setLoading(true);
+      setPage(0);
+      setHasMore(true);
     } else {
-      setIsLoadingMore(true)
+      setIsLoadingMore(true);
     }
 
     try {
-      const today = new Date()
-      const pageSize = 50
-      const currentPage = resetData ? 0 : page
+      const today = new Date();
+      const pageSize = 50;
+      const currentPage = resetData ? 0 : page;
 
       // First get all data for stats (handles Supabase 1000 row limit)
-      const allData = await fetchAllData()
-      calculateRatingStats(allData)
+      const allData = await fetchAllData();
+      calculateRatingStats(allData);
 
       // Extract unique values from all data
-      const uniqueSectors = [...new Set(allData.map(item => item.sector).filter(Boolean))]
-      const uniqueIndustries = [...new Set(allData.map(item => item.industry).filter(Boolean))]
-      const uniqueRatings = [...new Set(allData.map(item => item.rating).filter(Boolean))]
-      
-      setSectors(uniqueSectors.sort())
-      setIndustries(uniqueIndustries.sort())
-      setRatings(uniqueRatings.sort())
+      const uniqueSectors = [
+        ...new Set(allData.map((item) => item.sector).filter(Boolean)),
+      ];
+      const uniqueIndustries = [
+        ...new Set(allData.map((item) => item.industry).filter(Boolean)),
+      ];
+      const uniqueRatings = [
+        ...new Set(allData.map((item) => item.rating).filter(Boolean)),
+      ];
+
+      setSectors(uniqueSectors.sort());
+      setIndustries(uniqueIndustries.sort());
+      setRatings(uniqueRatings.sort());
 
       // Build query for paginated display data
       let query = supabase
         .from(selectedExchange)
-        .select('*', { count: 'exact' })
-        .gte('prediction_date', today.toISOString().split('T')[0])
+        .select("*", { count: "exact" })
+        .gte("prediction_date", today.toISOString().split("T")[0]);
 
       if (symbolFilter) {
-        query = query.ilike('symbol', `${symbolFilter}%`)
+        query = query.ilike("symbol", `${symbolFilter}%`);
       }
       if (companyFilter) {
-        query = query.ilike('company_name', `%${companyFilter}%`)
+        query = query.ilike("company_name", `%${companyFilter}%`);
       }
       if (searchTerm) {
-        query = query.or(`symbol.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,sector.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`)
+        query = query.or(
+          `symbol.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%,sector.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`
+        );
       }
-      if (selectedRating !== 'all') {
-        query = query.eq('rating', selectedRating)
+      if (selectedRating !== "all") {
+        query = query.eq("rating", selectedRating);
       }
-      if (selectedSector !== 'all') {
-        query = query.eq('sector', selectedSector)
+      if (selectedSector !== "all") {
+        query = query.eq("sector", selectedSector);
       }
-      if (selectedIndustry !== 'all') {
-        query = query.eq('industry', selectedIndustry)
+      if (selectedIndustry !== "all") {
+        query = query.eq("industry", selectedIndustry);
       }
 
       // Apply sorting
       if (sortConfig.key) {
-        query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'asc' })
+        query = query.order(sortConfig.key, {
+          ascending: sortConfig.direction === "asc",
+        });
       } else {
-        query = query.order('symbol', { ascending: true })
+        query = query.order("symbol", { ascending: true });
       }
 
       // Fetch paginated data for display
-      const { data: pageData, error, count } = await query
-        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
+      const {
+        data: pageData,
+        error,
+        count,
+      } = await query.range(
+        currentPage * pageSize,
+        (currentPage + 1) * pageSize - 1
+      );
 
-      if (error) throw error
+      if (error) throw error;
 
-      const newData = resetData ? pageData : [...data, ...pageData]
+      const newData = resetData ? pageData : [...data, ...pageData];
       console.log(newData);
-      setData(newData)
-      setHasMore(newData.length < count)
-      setPage(currentPage + 1)
-
+      setData(newData);
+      setHasMore(newData.length < count);
+      setPage(currentPage + 1);
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error("Error fetching data:", error);
     } finally {
       if (resetData) {
-        setLoading(false)
+        setLoading(false);
       } else {
-        setIsLoadingMore(false)
+        setIsLoadingMore(false);
       }
     }
-  }
+  };
 
   const handleExchangeChange = (exchange) => {
-    setSelectedExchange(exchange)
-    localStorage.setItem('selectedExchange', exchange)
-    setPage(0)
-    setData([])
-    setHasMore(true)
-    fetchData(true)
-  }
+    setSelectedExchange(exchange);
+    localStorage.setItem("selectedExchange", exchange);
+    setPage(0);
+    setData([]);
+    setHasMore(true);
+    fetchData(true);
+  };
 
   // Initial data fetch and filter changes
   useEffect(() => {
-    fetchData(true)
-  }, [selectedExchange, symbolFilter, companyFilter, searchTerm, selectedRating, selectedSector, selectedIndustry])
+    fetchData(true);
+  }, [
+    selectedExchange,
+    symbolFilter,
+    companyFilter,
+    searchTerm,
+    selectedRating,
+    selectedSector,
+    selectedIndustry,
+  ]);
 
   useEffect(() => {
     setPage(0);
     setHasMore(true);
-  }, [searchTerm, symbolFilter, companyFilter, selectedRating, selectedSector, selectedIndustry, selectedExchange]);
+  }, [
+    searchTerm,
+    symbolFilter,
+    companyFilter,
+    selectedRating,
+    selectedSector,
+    selectedIndustry,
+    selectedExchange,
+  ]);
 
   // Separate effect for sort changes to avoid double fetching
   useEffect(() => {
     // Only fetch if sortConfig has a key (meaning sorting is active)
     if (sortConfig.key) {
-      fetchData(true)
+      fetchData(true);
     }
-  }, [sortConfig.key, sortConfig.direction])
+  }, [sortConfig.key, sortConfig.direction]);
 
   const requestSort = (key) => {
     // Map UI column names to database column names
     const columnMap = {
-      'buy_score': 'probability',
-      'rsi': 'rsi',
-      'macd': 'macd_signal',
-      'vol': 'volume',
-      'mcap': 'market_cap',
-      'pe': 'pe_ratio',
-      'roe': 'return_on_equity',
-      'revg': 'revenue_growth',
-      'epsg': 'earnings_growth'
+      buy_score: "probability",
+      rsi: "rsi",
+      macd: "macd_signal",
+      vol: "volume",
+      mcap: "market_cap",
+      pe: "pe_ratio",
+      roe: "return_on_equity",
+      revg: "revenue_growth",
+      epsg: "earnings_growth",
     };
 
-    let direction = 'asc';
-    if (sortConfig.key === (columnMap[key] || key) && sortConfig.direction === 'asc') {
-      direction = 'desc';
+    let direction = "asc";
+    if (
+      sortConfig.key === (columnMap[key] || key) &&
+      sortConfig.direction === "asc"
+    ) {
+      direction = "desc";
     }
     setSortConfig({ key: columnMap[key] || key, direction });
   };
@@ -401,7 +471,7 @@ function App() {
     if (sortConfig.key !== columnKey) return null;
     return (
       <Text as="span" ml={1}>
-        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+        {sortConfig.direction === "asc" ? "↑" : "↓"}
       </Text>
     );
   };
@@ -410,26 +480,29 @@ function App() {
     const handlePopState = () => {
       // Restore scroll position
       if (tableContainerRef.current) {
-        const savedScrollTop = sessionStorage.getItem('app_scrollPosition');
+        const savedScrollTop = sessionStorage.getItem("app_scrollPosition");
         if (savedScrollTop) {
           tableContainerRef.current.scrollTop = parseInt(savedScrollTop, 10);
         }
       }
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (tableContainerRef.current) {
-        sessionStorage.setItem('app_scrollPosition', tableContainerRef.current.scrollTop.toString());
+        sessionStorage.setItem(
+          "app_scrollPosition",
+          tableContainerRef.current.scrollTop.toString()
+        );
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
   return (
@@ -437,11 +510,11 @@ function App() {
       <Container maxW="100%" p={1}>
         <VStack spacing={1} align="stretch">
           {/* Header */}
-          <Flex 
-            bg={cardBgColor} 
-            p={2} 
-            rounded="lg" 
-            shadow="sm" 
+          <Flex
+            bg={cardBgColor}
+            p={2}
+            rounded="lg"
+            shadow="sm"
             alignItems="center"
             gap={2}
             borderColor={borderColor}
@@ -450,7 +523,12 @@ function App() {
             {/* Left: Title and Exchange */}
             <Flex align="center" gap={2} flex="0 0 auto">
               <Flex align="center" gap={1}>
-                <Heading size="sm" bgGradient="linear(to-r, blue.400, teal.400)" bgClip="text" fontWeight="bold">
+                <Heading
+                  size="sm"
+                  bgGradient="linear(to-r, blue.400, teal.400)"
+                  bgClip="text"
+                  fontWeight="bold"
+                >
                   Swift
                 </Heading>
                 <Heading size="sm" color={textColor} fontWeight="bold">
@@ -458,7 +536,7 @@ function App() {
                 </Heading>
               </Flex>
               <Text fontSize="xs" color={mutedTextColor}>
-                {data.length > 0 ? formatDate(data[0].prediction_date) : ''}
+                {data.length > 0 ? formatDate(data[0].prediction_date) : ""}
               </Text>
               <Select
                 value={selectedExchange}
@@ -487,27 +565,27 @@ function App() {
               {Object.entries(ratingStats)
                 .sort((a, b) => {
                   const order = {
-                    'Strong Buy': 1,
-                    'Buy': 2,
-                    'Weak Buy': 3,
-                    'Weak Sell': 4,
-                    'Sell': 5,
-                    'Strong Sell': 6
-                  }
-                  return (order[a[0]] || 99) - (order[b[0]] || 99)
+                    "Strong Buy": 1,
+                    Buy: 2,
+                    "Weak Buy": 3,
+                    "Weak Sell": 4,
+                    Sell: 5,
+                    "Strong Sell": 6,
+                  };
+                  return (order[a[0]] || 99) - (order[b[0]] || 99);
                 })
                 .map(([rating, stats]) => (
-                  <Stat 
-                    key={rating} 
-                    px={2} 
-                    py={0.5} 
+                  <Stat
+                    key={rating}
+                    px={2}
+                    py={0.5}
                     bg={`${getRatingColor(rating)}.500`}
-                    rounded="md" 
+                    rounded="md"
                     minW="90px"
                     maxW="120px"
                     textAlign="center"
                   >
-                    <StatLabel 
+                    <StatLabel
                       color="white"
                       fontSize="2xs"
                       fontWeight="medium"
@@ -515,13 +593,9 @@ function App() {
                       opacity={0.9}
                       whiteSpace="nowrap"
                     >
-                      {rating.replace('Strong ', 'S.').replace('Weak ', 'W.')}
+                      {rating.replace("Strong ", "S.").replace("Weak ", "W.")}
                     </StatLabel>
-                    <StatNumber 
-                      fontSize="sm" 
-                      color="white" 
-                      fontWeight="bold"
-                    >
+                    <StatNumber fontSize="sm" color="white" fontWeight="bold">
                       {stats.count.toLocaleString()}
                     </StatNumber>
                   </Stat>
@@ -531,7 +605,7 @@ function App() {
             {/* Right: Actions */}
             <Flex gap={1} flex="0 0 auto">
               <IconButton
-                icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+                icon={colorMode === "light" ? <MoonIcon /> : <SunIcon />}
                 onClick={toggleColorMode}
                 variant="ghost"
                 size="sm"
@@ -545,9 +619,16 @@ function App() {
                   size="sm"
                 />
                 <MenuList>
-                  <MenuItem as={Link} to="/history" icon={<ViewIcon />}>View History</MenuItem>
+                  <MenuItem as={Link} to="/history" icon={<ViewIcon />}>
+                    View History
+                  </MenuItem>
                   <MenuItem icon={<DownloadIcon />}>Download Data</MenuItem>
-                  <MenuItem icon={<RepeatIcon />} onClick={() => fetchData(true)}>Refresh Data</MenuItem>
+                  <MenuItem
+                    icon={<RepeatIcon />}
+                    onClick={() => fetchData(true)}
+                  >
+                    Refresh Data
+                  </MenuItem>
                   <MenuItem icon={<ViewIcon />}>Column Settings</MenuItem>
                 </MenuList>
               </Menu>
@@ -556,10 +637,10 @@ function App() {
 
           {/* Filters */}
           <Grid
-            templateColumns={{ 
-              base: "repeat(2, 1fr)", 
-              md: "repeat(4, 1fr)", 
-              lg: "repeat(6, 1fr)" 
+            templateColumns={{
+              base: "repeat(2, 1fr)",
+              md: "repeat(4, 1fr)",
+              lg: "repeat(6, 1fr)",
             }}
             gap={1}
           >
@@ -586,8 +667,10 @@ function App() {
                 borderColor={borderColor}
               >
                 <option value="all">All Ratings</option>
-                {ratings.map(rating => (
-                  <option key={rating} value={rating}>{rating}</option>
+                {ratings.map((rating) => (
+                  <option key={rating} value={rating}>
+                    {rating}
+                  </option>
                 ))}
               </Select>
             </GridItem>
@@ -600,8 +683,10 @@ function App() {
                 borderColor={borderColor}
               >
                 <option value="all">All Sectors</option>
-                {sectors.map(sector => (
-                  <option key={sector} value={sector}>{sector}</option>
+                {sectors.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
+                  </option>
                 ))}
               </Select>
             </GridItem>
@@ -614,8 +699,10 @@ function App() {
                 borderColor={borderColor}
               >
                 <option value="all">All Industries</option>
-                {industries.map(industry => (
-                  <option key={industry} value={industry}>{industry}</option>
+                {industries.map((industry) => (
+                  <option key={industry} value={industry}>
+                    {industry}
+                  </option>
                 ))}
               </Select>
             </GridItem>
@@ -623,203 +710,202 @@ function App() {
 
           {/* Table */}
           {loading ? (
-            <Box 
-              p={4} 
-              justify="center" 
-              align="center" 
-              bg={cardBgColor} 
-              rounded="lg" 
+            <Box
+              p={4}
+              justify="center"
+              align="center"
+              bg={cardBgColor}
+              rounded="lg"
               shadow="sm"
               borderColor={borderColor}
               borderWidth="1px"
             >
-              <Spinner color={useColorModeValue('blue.500', 'blue.200')} />
+              <Spinner color={useColorModeValue("blue.500", "blue.200")} />
             </Box>
           ) : (
-            <Box 
-              bg={cardBgColor} 
-              rounded="lg" 
-              shadow="sm" 
+            <Box
+              bg={cardBgColor}
+              rounded="lg"
+              shadow="sm"
               overflowX="auto"
               borderColor={borderColor}
               borderWidth="1px"
             >
-              <TableContainer 
+              <TableContainer
                 ref={tableContainerRef}
-                maxH="calc(100vh - 120px)" 
+                maxH="calc(100vh - 120px)"
                 overflowY="auto"
                 onScroll={(e) => {
-                  const { scrollTop, scrollHeight, clientHeight } = e.target
-                  if (!isLoadingMore && hasMore && scrollHeight - scrollTop <= clientHeight * 1.5) {
-                    fetchData(false)
+                  const { scrollTop, scrollHeight, clientHeight } = e.target;
+                  if (
+                    !isLoadingMore &&
+                    hasMore &&
+                    scrollHeight - scrollTop <= clientHeight * 1.5
+                  ) {
+                    fetchData(false);
                   }
                 }}
               >
                 <Table variant="simple" size="sm">
-                  <Thead 
-                    position="sticky" 
-                    top={0} 
-                    zIndex={1} 
-                    bg={cardBgColor}
-                  >
+                  <Thead position="sticky" top={0} zIndex={1} bg={cardBgColor}>
                     <Tr>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        w="80px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        w="80px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('symbol')}
+                        onClick={() => requestSort("symbol")}
                         _hover={{ color: textColor }}
                       >
                         Symbol
                         <SortIndicator columnKey="symbol" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        w="150px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        w="150px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('company_name')}
+                        onClick={() => requestSort("company_name")}
                         _hover={{ color: textColor }}
                       >
                         Company
                         <SortIndicator columnKey="company_name" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={1} 
-                        w="110px" 
+                      <Th
+                        py={2}
+                        px={1}
+                        w="110px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('sector')}
+                        onClick={() => requestSort("sector")}
                         _hover={{ color: textColor }}
                       >
                         Sector
                         <SortIndicator columnKey="sector" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={1} 
-                        w="130px" 
+                      <Th
+                        py={2}
+                        px={1}
+                        w="130px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('industry')}
+                        onClick={() => requestSort("industry")}
                         _hover={{ color: textColor }}
                       >
                         Industry
                         <SortIndicator columnKey="industry" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        w="120px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        w="120px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('prediction_date')}
+                        onClick={() => requestSort("prediction_date")}
                         _hover={{ color: textColor }}
                       >
                         Prediction Date
-                        <SortIndicator columnKey='prediction_date' />
+                        <SortIndicator columnKey="prediction_date" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="120px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="120px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('current_price')}
+                        onClick={() => requestSort("current_price")}
                         _hover={{ color: textColor }}
                       >
                         Previous Close
                         <SortIndicator columnKey="current_price" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="110px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="110px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('predicted_price')}
+                        onClick={() => requestSort("predicted_price")}
                         _hover={{ color: textColor }}
                       >
                         Volume
                         <SortIndicator columnKey="predicted_price" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        w="90px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        w="90px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('market_cap')}
+                        onClick={() => requestSort("market_cap")}
                         _hover={{ color: textColor }}
                       >
                         Market Cap
                         <SortIndicator columnKey="market_cap" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        w="90px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        w="90px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('pe_ratio')}
+                        onClick={() => requestSort("pe_ratio")}
                         _hover={{ color: textColor }}
                       >
                         PE ratio
                         <SortIndicator columnKey="pe_ratio" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="80px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('day_high')}
+                        onClick={() => requestSort("day_high")}
                         _hover={{ color: textColor }}
                       >
                         Day High
                         <SortIndicator columnKey="day_high" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="80px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('day_low')}
+                        onClick={() => requestSort("day_low")}
                         _hover={{ color: textColor }}
                       >
                         Day Low
                         <SortIndicator columnKey="day_low" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="80px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('news_sentiment_rating')}
+                        onClick={() => requestSort("news_sentiment_rating")}
                         _hover={{ color: textColor }}
                       >
                         News Sentiment Rating
                         <SortIndicator columnKey="news_sentiment_rating" />
                       </Th>
-                      <Th 
-                        py={2} 
-                        px={2} 
-                        isNumeric 
-                        w="80px" 
+                      <Th
+                        py={2}
+                        px={2}
+                        isNumeric
+                        w="80px"
                         color={mutedTextColor}
                         cursor="pointer"
-                        onClick={() => requestSort('stock_rating')}
+                        onClick={() => requestSort("stock_rating")}
                         _hover={{ color: textColor }}
                       >
                         Stock Rating
@@ -828,101 +914,169 @@ function App() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {data.map((stock) => stock && (
-                      <Tr 
-                        key={stock?.symbol || `unknown-${Math.random()}`} 
-                        _hover={{ bg: hoverBgColor }}
-                        borderColor={borderColor}
-                      >
-                        <Td py={0.5} px={2} fontSize="xs" fontWeight="medium">
-                          <Link
-                            to={`/stock/${stock?.symbol?.split('.')[0]}?exchange=${selectedExchange}`}
-                            color="blue.500"
-                            _hover={{ textDecoration: 'underline' }}
+                    {data.map(
+                      (stock) =>
+                        stock && (
+                          <Tr
+                            key={stock?.symbol || `unknown-${Math.random()}`}
+                            _hover={{ bg: hoverBgColor }}
+                            borderColor={borderColor}
                           >
-                            {stock?.symbol?.split('.')[0] ?? '-'}
-                          </Link>
-                        </Td>
-                        <Td py={0.5} px={2} fontSize="xs" maxW="150px" isTruncated>{stock?.company_name || '-'}</Td>
-                        <Td py={0.5} px={1} fontSize="xs" w="110px">
-                          <Box overflow="hidden">
-                            <Badge 
-                              colorScheme={stock?.sector ? getSectorColor(stock.sector) : 'gray'} 
-                              variant="subtle"
-                              size="sm"
-                              px={1}
-                              py={0}
-                              borderRadius="sm"
-                              textTransform="none"
-                              isTruncated
-                              display="block"
-                              w="100%"
+                            <Td
+                              py={0.5}
+                              px={2}
+                              fontSize="xs"
+                              fontWeight="medium"
                             >
-                              {stock?.sector || '-'}
-                            </Badge>
-                          </Box>
-                        </Td>
-                        <Td py={0.5} px={1} fontSize="xs" w="130px">
-                          <Box overflow="hidden">
-                            <Badge 
-                              colorScheme={stock?.industry ? getIndustryColor(stock.industry) : 'gray'} 
-                              variant="subtle"
-                              size="sm"
-                              px={1}
-                              py={0}
-                              borderRadius="sm"
-                              textTransform="none"
+                              <Link
+                                to={`/stock/${
+                                  stock?.symbol?.split(".")[0]
+                                }?exchange=${selectedExchange}`}
+                                color="blue.500"
+                                _hover={{ textDecoration: "underline" }}
+                              >
+                                {stock?.symbol?.split(".")[0] ?? "-"}
+                              </Link>
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              fontSize="xs"
+                              maxW="150px"
                               isTruncated
-                              display="block"
-                              w="100%"
                             >
-                              {stock?.industry || '-'}
-                            </Badge>
-                          </Box>
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock?.daily_returns)}>
-                          {stock?.prediction_date}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" fontWeight="medium" color={getPriceColor(stock?.daily_returns)}>
-                          {stock?.previous_close}
-                        </Td>
-                        <Td py={0.5} px={2}>
-                            {formatVolume(stock?.volume) || '-'}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.probability, 50)}>
-                          {formatValue(stock?.market_cap, 1, true)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.rsi, 50)}>
-                          {formatValue(stock?.pe_ratio)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs" color={getValueColor(stock?.macd_signal)}>
-                          {formatValue(stock?.day_high)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {formatVolume(stock?.day_low)}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {stock?.news_sentiment_rating}
-                        </Td>
-                        <Td py={0.5} px={2} isNumeric fontSize="xs">
-                          {stock?.stock_rating}
-                        </Td>
-                      </Tr>
-                    ))}
+                              {stock?.company_name || "-"}
+                            </Td>
+                            <Td py={0.5} px={1} fontSize="xs" w="110px">
+                              <Box overflow="hidden">
+                                <Badge
+                                  colorScheme={
+                                    stock?.sector
+                                      ? getSectorColor(stock.sector)
+                                      : "gray"
+                                  }
+                                  variant="subtle"
+                                  size="sm"
+                                  px={1}
+                                  py={0}
+                                  borderRadius="sm"
+                                  textTransform="none"
+                                  isTruncated
+                                  display="block"
+                                  w="100%"
+                                >
+                                  {stock?.sector || "-"}
+                                </Badge>
+                              </Box>
+                            </Td>
+                            <Td py={0.5} px={1} fontSize="xs" w="130px">
+                              <Box overflow="hidden">
+                                <Badge
+                                  colorScheme={
+                                    stock?.industry
+                                      ? getIndustryColor(stock.industry)
+                                      : "gray"
+                                  }
+                                  variant="subtle"
+                                  size="sm"
+                                  px={1}
+                                  py={0}
+                                  borderRadius="sm"
+                                  textTransform="none"
+                                  isTruncated
+                                  display="block"
+                                  w="100%"
+                                >
+                                  {stock?.industry || "-"}
+                                </Badge>
+                              </Box>
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              fontWeight="medium"
+                              color={getPriceColor(stock?.daily_returns)}
+                            >
+                              {formatDate(stock?.prediction_date)}
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              fontWeight="medium"
+                              color={getPriceColor(stock?.daily_returns)}
+                            >
+                              {formatValue(stock?.previous_close)}
+                            </Td>
+                            <Td py={0.5} px={2}>
+                              {formatVolume(stock?.volume) || "-"}
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              color={getValueColor(stock?.probability, 50)}
+                            >
+                              {stock?.market_cap >= 1e9
+                                ? `${(stock?.market_cap / 1e9).toFixed(1)}B`
+                                : `${(stock?.market_cap / 1e6).toFixed(0)}M`}
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              color={getValueColor(stock?.rsi, 50)}
+                            >
+                              {formatValue(stock?.pe_ratio)}
+                            </Td>
+                            <Td
+                              py={0.5}
+                              px={2}
+                              isNumeric
+                              fontSize="xs"
+                              color={getValueColor(stock?.macd_signal)}
+                            >
+                              {formatValue(stock?.day_high)}
+                            </Td>
+                            <Td py={0.5} px={2} isNumeric fontSize="xs">
+                              {formatValue(stock?.day_low)}
+                            </Td>
+                            <Td py={0.5} px={2} isNumeric fontSize="xs">
+                              {stock?.news_sentiment_rating}
+                            </Td>
+                            <Td py={0.5} px={2} isNumeric fontSize="xs">
+                              {stock?.stock_rating}
+                            </Td>
+                          </Tr>
+                        )
+                    )}
                   </Tbody>
                 </Table>
               </TableContainer>
             </Box>
           )}
-          
+
           {/* Status Bar */}
-          <Box justify="center" align="center" py={0.5} fontSize="xs" color={mutedTextColor}>
-            <Text>Showing {data.length} of {data.length} stocks</Text>
+          <Box
+            justify="center"
+            align="center"
+            py={0.5}
+            fontSize="xs"
+            color={mutedTextColor}
+          >
+            <Text>
+              Showing {data.length} of {data.length} stocks
+            </Text>
           </Box>
         </VStack>
       </Container>
     </Box>
-  )
+  );
 }
 
-export default App
+export default App;
